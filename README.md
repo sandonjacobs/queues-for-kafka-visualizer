@@ -30,8 +30,8 @@ Each record travels through a defined lifecycle:
 
 **2. The SPSO / SPEO offset markers**
 
-- **SPSO** (Share Partition Start Offset) — the lowest offset of any live record. The broker can only commit acknowledgements contiguously from this point.
-- **SPEO** (Share Partition End Offset) — the highest produced offset. The gap between SPSO and SPEO is the share group lag.
+- **SPSO** (Share Partition Start Offset) — the earliest offset of any live (AVAILABLE or ACQUIRED) record. The broker can only commit acknowledgements contiguously from this point.
+- **SPEO** (Share Partition End Offset) — the latest produced offset of the in-flight records window.
 
 **3. Consumer scaling without repartitioning**
 
