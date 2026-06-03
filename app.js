@@ -5,22 +5,130 @@
 const STATE = { AVAILABLE:'available', ACQUIRED:'acquired', ACKNOWLEDGED:'acknowledged', ARCHIVED:'archived' };
 const ACK   = { ACCEPT:'accept', RELEASE:'release', REJECT:'reject', RENEW:'renew' };
 
-const CELL_COLOR = {
-  available:    '#1a3a5c',
-  acquired:     '#7a3d00',
-  acknowledged_accept: '#1a4a2e',
-  acknowledged_release:'#3b1a5c',
-  acknowledged_reject: '#5c1a1a',
-  archived:     '#1e2430',
+// ── Theme palettes ──────────────────────────────────────────
+const DARK = {
+  cellBg: {
+    available:            '#1a3a5c',
+    acquired:             '#7a3d00',
+    acknowledged_accept:  '#1a4a2e',
+    acknowledged_release: '#3b1a5c',
+    acknowledged_reject:  '#5c1a1a',
+    archived:             '#1e2430',
+    _default:             '#1a1d27',
+  },
+  cellBorder: {
+    available:            '#2196F3',
+    acquired:             '#FF9800',
+    acknowledged_accept:  '#4CAF50',
+    acknowledged_release: '#9C27B0',
+    acknowledged_reject:  '#F44336',
+    archived:             '#3d4f63',
+    _default:             '#3d4f63',
+  },
+  legend: [
+    ['AVAIL',   '#2196F3', '#1a3a5c'],
+    ['ACQ',     '#FF9800', '#7a3d00'],
+    ['ACCEPT',  '#4CAF50', '#1a4a2e'],
+    ['RELEASE', '#9C27B0', '#3b1a5c'],
+    ['REJECT',  '#F44336', '#5c1a1a'],
+    ['ARCH',    '#607D8B', '#1e2430'],
+  ],
+  processedBg:'#0b1118',  processedStrokeA:'#161f2e',  processedStrokeR:'#2a1010',
+  processedSymA:'#1a3a28', processedSymR:'#5a1a1a',
+  processedPillBg:'#0e1620', processedPillTxt:'#243550',
+  acceptGapBg:'#111820',  acceptGapStroke:'#1e2a3a',  acceptGapSym:'#2a4a3a',
+  rejectGapBg:'#180e0e',  rejectGapStroke:'#3a1a1a',  rejectGapSym:'#7a2a2a',
+  offsetPillBg:'#1e2a40', offsetPillTxt:'#90aed4',
+  partLabel:'#4a6080',
+  histBg:'#0d1118',       histStroke:'#1a2232',
+  liveBg:'#141820',       liveStroke:'#222840',
+  emptyTxt:'#2d3748',
+  gapPillBg:'#1a2030',    gapPillTxt:'#4a6080',
+  spsoColor:'#4CAF50',    spsoClipped:'#2a5c3a',
+  speoColor:'#63b3ed',
+  statsTxt:'#2d4060',
+  lagBg:'#131820',        lagBgActive:'#2a1e08',
+  lagStroke:'#1e2a3a',    lagStrokeActive:'#7a5010',
+  lagLbl:'#2d4060',       lagLblActive:'#a07030',
+  lagVal:'#3a5070',       lagValActive:'#e2a83a',
+  conBg:'#161b22',        conBgProc:'#1a1f0a',        conBgCrash:'#1e0808',
+  conStroke:'#2a3347',    conStrokeProc:'#FF9800',     conStrokeCrash:'#e05252',
+  conHeader:'#1c2230',    conHeaderProc:'#1e2a0a',     conHeaderCrash:'#3a0f0f',
+  conTxt:'#c9d1d9',       conTxtCrash:'#fc8181',
+  conBadge:'#4a5568',     conBadgeProc:'#FF9800',      conBadgeCrash:'#e05252',
+  conCrashIcon:'#6e2a2a', conCrashTxt:'#e05252',       conWaiting:'#2a3347',
+  pillBg:'#1a2a0a',       pillBgLimit:'#3a1515',
+  pillStroke:'#FF9800',   pillStrokeLimit:'#e05252',
+  pillOffset:'#FF9800',   pillDc:'#6e8a6e',  pillDcLimit:'#fc8181',  pillMore:'#4a5568',
+  dcWarn:'#fc8181',       dcOrange:'#fbd38d', dcNormal:'#718096',
+  ttEmpty:'#3d5068',      ttPillBg:'#0d1a2a', ttPillBorder:'#1e3048',
+  ttPillOffset:'#FF9800', ttRecordsLbl:'#6e7d91',
+  ttStateCrash:'#fc8181', ttStateProc:'#FF9800', ttStateIdle:'#6e7d91',
 };
-const CELL_BORDER = {
-  available:    '#2196F3',
-  acquired:     '#FF9800',
-  acknowledged_accept: '#4CAF50',
-  acknowledged_release:'#9C27B0',
-  acknowledged_reject: '#F44336',
-  archived:     '#3d4f63',
+
+const LIGHT = {
+  cellBg: {
+    available:            '#c8e0f8',
+    acquired:             '#fde8c8',
+    acknowledged_accept:  '#c8f0d8',
+    acknowledged_release: '#e8c8f8',
+    acknowledged_reject:  '#f8c8c8',
+    archived:             '#d8dee8',
+    _default:             '#e8ecf2',
+  },
+  cellBorder: {
+    available:            '#1565c0',
+    acquired:             '#e65100',
+    acknowledged_accept:  '#2e7d32',
+    acknowledged_release: '#6a1b9a',
+    acknowledged_reject:  '#c62828',
+    archived:             '#455a64',
+    _default:             '#8090a8',
+  },
+  legend: [
+    ['AVAIL',   '#1565c0', '#c8e0f8'],
+    ['ACQ',     '#e65100', '#fde8c8'],
+    ['ACCEPT',  '#2e7d32', '#c8f0d8'],
+    ['RELEASE', '#6a1b9a', '#e8c8f8'],
+    ['REJECT',  '#c62828', '#f8c8c8'],
+    ['ARCH',    '#455a64', '#d8dee8'],
+  ],
+  processedBg:'#e8edf2',  processedStrokeA:'#b8d0c0',  processedStrokeR:'#d8b8b8',
+  processedSymA:'#2e7d32', processedSymR:'#c62828',
+  processedPillBg:'#d0dcea', processedPillTxt:'#3a5880',
+  acceptGapBg:'#eaf4ee',  acceptGapStroke:'#a8d0b8',   acceptGapSym:'#2e7d32',
+  rejectGapBg:'#faeaea',  rejectGapStroke:'#d8a8a8',   rejectGapSym:'#c62828',
+  offsetPillBg:'#d0dcea', offsetPillTxt:'#2a4870',
+  partLabel:'#3a5880',
+  histBg:'#e0e6f0',       histStroke:'#c0ccda',
+  liveBg:'#e8edf5',       liveStroke:'#b8c4d4',
+  emptyTxt:'#7080a0',
+  gapPillBg:'#d0dcea',    gapPillTxt:'#3a5880',
+  spsoColor:'#2e7d32',    spsoClipped:'#4a9060',
+  speoColor:'#1565c0',
+  statsTxt:'#4a6080',
+  lagBg:'#eaeff5',        lagBgActive:'#fef3e2',
+  lagStroke:'#c0cad8',    lagStrokeActive:'#c8a04a',
+  lagLbl:'#7080a0',       lagLblActive:'#906010',
+  lagVal:'#5060a0',       lagValActive:'#b07020',
+  conBg:'#ffffff',        conBgProc:'#f5fde8',         conBgCrash:'#fef0f0',
+  conStroke:'#c8d0dc',    conStrokeProc:'#FF9800',      conStrokeCrash:'#e05252',
+  conHeader:'#f0f4f8',    conHeaderProc:'#e8f5d8',      conHeaderCrash:'#fde8e8',
+  conTxt:'#1a2030',       conTxtCrash:'#c04040',
+  conBadge:'#7080a0',     conBadgeProc:'#e07000',       conBadgeCrash:'#c04040',
+  conCrashIcon:'#f0a0a0', conCrashTxt:'#c04040',        conWaiting:'#9090a8',
+  pillBg:'#e8f5d8',       pillBgLimit:'#fde8e8',
+  pillStroke:'#e07000',   pillStrokeLimit:'#c04040',
+  pillOffset:'#d07010',   pillDc:'#507050',  pillDcLimit:'#c04040',  pillMore:'#7080a0',
+  dcWarn:'#c04040',       dcOrange:'#c07000', dcNormal:'#6070a0',
+  ttEmpty:'#6070a0',      ttPillBg:'#e8edf5', ttPillBorder:'#c0cad8',
+  ttPillOffset:'#d07010', ttRecordsLbl:'#5a7090',
+  ttStateCrash:'#c04040', ttStateProc:'#e07000', ttStateIdle:'#5a7090',
 };
+
+let T = DARK;
+let CELL_COLOR = T.cellBg;
+let CELL_BORDER = T.cellBorder;
 const STATE_LABEL = {
   available:    'AVAIL',
   acquired:     'ACQ',
@@ -413,12 +521,12 @@ function viewportFor(p) {
 // ═══════════════════════════════════════════════════════════
 
 function drawProcessedCell(x, y, w, h, offset, rejected = false) {
-  ctx.fillStyle = '#0b1118';
+  ctx.fillStyle = T.processedBg;
   ctx.beginPath(); ctx.roundRect(x + 1, y, w - 2, h, 3); ctx.fill();
-  ctx.strokeStyle = rejected ? '#2a1010' : '#161f2e'; ctx.lineWidth = 1;
+  ctx.strokeStyle = rejected ? T.processedStrokeR : T.processedStrokeA; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect(x + 1, y, w - 2, h, 3); ctx.stroke();
 
-  ctx.fillStyle = rejected ? '#5a1a1a' : '#1a3a28';
+  ctx.fillStyle = rejected ? T.processedSymR : T.processedSymA;
   ctx.font = `bold ${Math.min(11, h * 0.28)}px sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(rejected ? '✕' : '✓', x + w / 2, y + h / 2 + 2);
@@ -431,29 +539,29 @@ function drawProcessedCell(x, y, w, h, offset, rejected = false) {
   const offH = 12;
   const offX = x + w / 2 - offW / 2;
   const offY = y - offH - 2;
-  ctx.fillStyle = '#0e1620';
+  ctx.fillStyle = T.processedPillBg;
   ctx.beginPath(); ctx.roundRect(offX, offY, offW, offH, 3); ctx.fill();
-  ctx.fillStyle = '#243550';
+  ctx.fillStyle = T.processedPillTxt;
   ctx.fillText(offStr, x + w / 2, offY + offH / 2);
 }
 
 function drawAcceptedGap(x, y, w, h) {
-  ctx.fillStyle = '#111820';
+  ctx.fillStyle = T.acceptGapBg;
   ctx.beginPath(); ctx.roundRect(x + 1, y, w - 2, h, 3); ctx.fill();
-  ctx.strokeStyle = '#1e2a3a'; ctx.lineWidth = 1;
+  ctx.strokeStyle = T.acceptGapStroke; ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.fillStyle = '#2a4a3a';
+  ctx.fillStyle = T.acceptGapSym;
   ctx.font = `bold ${Math.min(14, h * 0.3)}px sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('✓', x + w / 2, y + h / 2);
 }
 
 function drawRejectedGap(x, y, w, h) {
-  ctx.fillStyle = '#180e0e';
+  ctx.fillStyle = T.rejectGapBg;
   ctx.beginPath(); ctx.roundRect(x + 1, y, w - 2, h, 3); ctx.fill();
-  ctx.strokeStyle = '#3a1a1a'; ctx.lineWidth = 1;
+  ctx.strokeStyle = T.rejectGapStroke; ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.fillStyle = '#7a2a2a';
+  ctx.fillStyle = T.rejectGapSym;
   ctx.font = `bold ${Math.min(14, h * 0.3)}px sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('✕', x + w / 2, y + h / 2);
@@ -472,7 +580,7 @@ function drawCell(x, y, w, h, r, offset) {
   const key = r ? cellKey(r) : 'archived';
 
   // Cell background
-  ctx.fillStyle = CELL_COLOR[key] || '#1a1d27';
+  ctx.fillStyle = CELL_COLOR[key] || CELL_COLOR._default;
   ctx.beginPath();
   ctx.roundRect(x + 1, y, w - 2, h, 3);
   ctx.fill();
@@ -480,7 +588,7 @@ function drawCell(x, y, w, h, r, offset) {
   // Border — glow during flash
   const flashing = r && (performance.now() / 120 + r.id) % 2 < 1 &&
                    r.flashAge !== undefined && r.flashAge < 12;
-  ctx.strokeStyle = CELL_BORDER[key] || '#3d4f63';
+  ctx.strokeStyle = CELL_BORDER[key] || CELL_BORDER._default;
   ctx.lineWidth = flashing ? 2 : 1;
   if (flashing) { ctx.shadowColor = CELL_BORDER[key]; ctx.shadowBlur = 8; }
   ctx.beginPath();
@@ -497,9 +605,9 @@ function drawCell(x, y, w, h, r, offset) {
   const offH = 14;
   const offX = x + w / 2 - offW / 2;
   const offY = y - offH - 2;
-  ctx.fillStyle = '#1e2a40';
+  ctx.fillStyle = T.offsetPillBg;
   ctx.beginPath(); ctx.roundRect(offX, offY, offW, offH, 3); ctx.fill();
-  ctx.fillStyle = '#90aed4';
+  ctx.fillStyle = T.offsetPillTxt;
   ctx.fillText(offStr, x + w / 2, offY + offH / 2);
 
   if (!r) return;
@@ -507,7 +615,7 @@ function drawCell(x, y, w, h, r, offset) {
   // State label
   const label = STATE_LABEL[key] || key;
   const fontSize = Math.max(9, Math.min(13, (w - 6) / label.length * 1.7));
-  ctx.fillStyle = CELL_BORDER[key] || '#aaa';
+  ctx.fillStyle = CELL_BORDER[key] || CELL_BORDER._default;
   ctx.font = `bold ${fontSize}px Courier New`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -520,7 +628,7 @@ function drawCell(x, y, w, h, r, offset) {
   if (showDC && h >= 30) {
     const dcLabel = `×${r.deliveryCount}`;
     const atLimit = r.deliveryCount >= config.deliveryCountLimit - 1;
-    ctx.fillStyle = atLimit ? '#fc8181' : (r.state === STATE.ACQUIRED ? '#fbd38d' : '#718096');
+    ctx.fillStyle = atLimit ? T.dcWarn : (r.state === STATE.ACQUIRED ? T.dcOrange : T.dcNormal);
     ctx.font = `bold ${Math.max(9, Math.min(11, w / 3.5))}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -529,7 +637,7 @@ function drawCell(x, y, w, h, r, offset) {
 
   // Consumer badge (bottom of ACQ cell)
   if (r.state === STATE.ACQUIRED && r.acquiredBy !== null && h >= 36) {
-    ctx.fillStyle = '#FF9800';
+    ctx.fillStyle = CELL_BORDER.acquired;
     ctx.font = `bold ${Math.max(9, Math.min(11, w / 4))}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
@@ -558,7 +666,7 @@ function drawPartitionLane(p, laneIdx) {
   const ch = L.CELL_H;
 
   // ── Partition label (in LABEL_W strip) ──
-  ctx.fillStyle = '#4a6080';
+  ctx.fillStyle = T.partLabel;
   ctx.font = 'bold 12px Courier New';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -567,11 +675,11 @@ function drawPartitionLane(p, laneIdx) {
   // ── History zone background (between label and SPSO boundary) ──
   const histX0 = L.LABEL_W + 2;
   const histW  = L.HIST_AREA_W;
-  ctx.fillStyle = '#0d1118';
+  ctx.fillStyle = T.histBg;
   ctx.beginPath();
   ctx.roundRect(histX0, laneY + 4, histW, L.LANE_H - 8, 4);
   ctx.fill();
-  ctx.strokeStyle = '#1a2232'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.strokeStyle = T.histStroke; ctx.lineWidth = 1; ctx.stroke();
 
   // ── History cells: up to HIST_COUNT pre-SPSO records, right-aligned to SPSO boundary ──
   if (p.spso > 0) {
@@ -584,17 +692,17 @@ function drawPartitionLane(p, laneIdx) {
   }
 
   // ── Live zone background ──
-  ctx.fillStyle = '#141820';
+  ctx.fillStyle = T.liveBg;
   ctx.beginPath();
   ctx.roundRect(L.LEFT_MARGIN - 4, laneY + 4, L.USABLE_W + 8, L.LANE_H - 8, 5);
   ctx.fill();
-  ctx.strokeStyle = '#222840';
+  ctx.strokeStyle = T.liveStroke;
   ctx.lineWidth = 1;
   ctx.stroke();
 
   if (end < 0) {
     // Empty partition — placeholder
-    ctx.fillStyle = '#2d3748';
+    ctx.fillStyle = T.emptyTxt;
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -621,9 +729,9 @@ function drawPartitionLane(p, laneIdx) {
       const gapOffH = 14;
       const gapOffX = cx + cw / 2 - gapOffW / 2;
       const gapOffY = cellTop - gapOffH - 2;
-      ctx.fillStyle = '#1a2030';
+      ctx.fillStyle = T.gapPillBg;
       ctx.beginPath(); ctx.roundRect(gapOffX, gapOffY, gapOffW, gapOffH, 3); ctx.fill();
-      ctx.fillStyle = '#4a6080';
+      ctx.fillStyle = T.gapPillTxt;
       ctx.fillText(gapStr, cx + cw / 2, gapOffY + gapOffH / 2);
       if (p.rejectedOffsets.has(offset)) {
         drawRejectedGap(cx, cellTop, cw, ch);
@@ -638,17 +746,17 @@ function drawPartitionLane(p, laneIdx) {
   ctx.beginPath();
   ctx.moveTo(spsoX, laneY + 4);
   ctx.lineTo(spsoX, laneY + L.LANE_H - 4);
-  ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 2;
+  ctx.strokeStyle = T.spsoColor; ctx.lineWidth = 2;
   ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
   // SPSO label above history zone (right-aligned to boundary)
-  ctx.fillStyle = '#4CAF50';
+  ctx.fillStyle = T.spsoColor;
   ctx.font = 'bold 8px Courier New';
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
   ctx.fillText('SPSO', spsoX - 1, laneY + 5);
   ctx.font = '8px Courier New';
   ctx.fillText(`=${p.spso}`, spsoX - 1, laneY + 14);
   // Arrow pointing right into live zone
-  ctx.fillStyle = '#4CAF50';
+  ctx.fillStyle = T.spsoColor;
   ctx.beginPath();
   ctx.moveTo(spsoX, laneY + L.LANE_H / 2 - 4);
   ctx.lineTo(spsoX + 7, laneY + L.LANE_H / 2);
@@ -656,7 +764,7 @@ function drawPartitionLane(p, laneIdx) {
   ctx.closePath(); ctx.fill();
   // When viewport is windowed (start > spso), note hidden live records
   if (vp.clipped && start > p.spso) {
-    ctx.fillStyle = '#2a5c3a';
+    ctx.fillStyle = T.spsoClipped;
     ctx.font = '8px Courier New';
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(`+${start - p.spso} live`, L.LEFT_MARGIN + 2, laneY + 5);
@@ -668,13 +776,13 @@ function drawPartitionLane(p, laneIdx) {
   ctx.beginPath();
   ctx.moveTo(speoX, laneY + 6);
   ctx.lineTo(speoX, laneY + L.LANE_H - 10);
-  ctx.strokeStyle = '#63b3ed';
+  ctx.strokeStyle = T.speoColor;
   ctx.lineWidth = 2;
   ctx.setLineDash([4, 3]);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.fillStyle = '#63b3ed';
+  ctx.fillStyle = T.speoColor;
   ctx.font = 'bold 9px Courier New';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
@@ -683,7 +791,7 @@ function drawPartitionLane(p, laneIdx) {
   ctx.fillText(`=${p.speo}`, speoX - 2, laneY + 23);
 
   // Arrow right on SPEO
-  ctx.fillStyle = '#63b3ed';
+  ctx.fillStyle = T.speoColor;
   ctx.beginPath();
   ctx.moveTo(speoX - 7, laneY + L.LANE_H / 2 - 4);
   ctx.lineTo(speoX, laneY + L.LANE_H / 2);
@@ -692,7 +800,7 @@ function drawPartitionLane(p, laneIdx) {
   ctx.fill();
 
   // ── Partition stats (bottom right of lane) ──
-  ctx.fillStyle = '#2d4060';
+  ctx.fillStyle = T.statsTxt;
   ctx.font = '9px Courier New';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
@@ -700,7 +808,7 @@ function drawPartitionLane(p, laneIdx) {
   ctx.fillText(statsStr, L.LEFT_MARGIN + L.USABLE_W, laneY + L.LANE_H - 4);
 
   // ── Live count (bottom left) ──
-  ctx.fillStyle = '#2d4060';
+  ctx.fillStyle = T.statsTxt;
   ctx.font = '9px Courier New';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
@@ -712,17 +820,17 @@ function drawPartitionLane(p, laneIdx) {
   const badgeX = L.LEFT_MARGIN + L.USABLE_W - badgeW - 4;
   const badgeY = laneY + 6;
   const hasLag = lag > 0;
-  ctx.fillStyle = hasLag ? '#2a1e08' : '#131820';
+  ctx.fillStyle = hasLag ? T.lagBgActive : T.lagBg;
   ctx.beginPath(); ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4); ctx.fill();
-  ctx.strokeStyle = hasLag ? '#7a5010' : '#1e2a3a'; ctx.lineWidth = 1;
+  ctx.strokeStyle = hasLag ? T.lagStrokeActive : T.lagStroke; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4); ctx.stroke();
   // "LAG" label
-  ctx.fillStyle = hasLag ? '#a07030' : '#2d4060';
+  ctx.fillStyle = hasLag ? T.lagLblActive : T.lagLbl;
   ctx.font = 'bold 8px Courier New';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('LAG', badgeX + badgeW / 2, badgeY + 4);
   // Lag value
-  ctx.fillStyle = hasLag ? '#e2a83a' : '#3a5070';
+  ctx.fillStyle = hasLag ? T.lagValActive : T.lagVal;
   ctx.font = `bold ${Math.min(16, badgeH * 0.52)}px Courier New`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillText(String(lag), badgeX + badgeW / 2, badgeY + badgeH - 3);
@@ -749,29 +857,29 @@ function drawConsumerRow() {
     else if (isProcessing) { ctx.shadowColor = '#FF9800'; ctx.shadowBlur = 6; }
 
     // Card background
-    ctx.fillStyle = isCrashed ? '#1e0808' : isProcessing ? '#1a1f0a' : '#161b22';
+    ctx.fillStyle = isCrashed ? T.conBgCrash : isProcessing ? T.conBgProc : T.conBg;
     ctx.beginPath(); ctx.roundRect(bx, y, w, h, 6); ctx.fill();
 
     // Card border
-    ctx.strokeStyle = isCrashed ? '#e05252' : isProcessing ? '#FF9800' : '#2a3347';
+    ctx.strokeStyle = isCrashed ? T.conStrokeCrash : isProcessing ? T.conStrokeProc : T.conStroke;
     ctx.lineWidth = isCrashed || isProcessing ? 1.5 : 1;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
     // ── Header strip ──
     const headerH = 22;
-    ctx.fillStyle = isCrashed ? '#3a0f0f' : isProcessing ? '#1e2a0a' : '#1c2230';
+    ctx.fillStyle = isCrashed ? T.conHeaderCrash : isProcessing ? T.conHeaderProc : T.conHeader;
     ctx.beginPath(); ctx.roundRect(bx + 1, y + 1, w - 2, headerH, [5, 5, 0, 0]); ctx.fill();
 
     // Consumer ID
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = isCrashed ? '#fc8181' : '#c9d1d9';
+    ctx.fillStyle = isCrashed ? T.conTxtCrash : T.conTxt;
     ctx.font = 'bold 12px Courier New';
     ctx.fillText(`C${c.id}`, bx + 9, y + headerH / 2 + 1);
 
     // State badge (right of header)
     const stateText = isCrashed ? 'CRASHED' : isProcessing ? 'PROCESSING' : 'IDLE';
-    const badgeColor = isCrashed ? '#e05252' : isProcessing ? '#FF9800' : '#4a5568';
+    const badgeColor = isCrashed ? T.conBadgeCrash : isProcessing ? T.conBadgeProc : T.conBadge;
     ctx.font = 'bold 8px sans-serif';
     ctx.textAlign = 'right';
     ctx.fillStyle = badgeColor;
@@ -783,15 +891,15 @@ function drawConsumerRow() {
 
     if (isCrashed) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#6e2a2a';
+      ctx.fillStyle = T.conCrashIcon;
       ctx.font = 'bold 11px sans-serif';
       ctx.fillText('💥', bx + w / 2, bodyY + bodyH / 2 - 6);
-      ctx.fillStyle = '#e05252';
+      ctx.fillStyle = T.conCrashTxt;
       ctx.font = '9px sans-serif';
       ctx.fillText(`recovery in ${c.crashCooldown}`, bx + w / 2, bodyY + bodyH / 2 + 8);
     } else if (!hasRecords) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#2a3347';
+      ctx.fillStyle = T.conWaiting;
       ctx.font = '9px sans-serif';
       ctx.fillText('waiting for records', bx + w / 2, bodyY + bodyH / 2);
     } else {
@@ -808,21 +916,21 @@ function drawConsumerRow() {
         const atLimit = dc >= config.deliveryCountLimit - 1;
 
         // Pill bg
-        ctx.fillStyle = atLimit ? '#3a1515' : '#1a2a0a';
+        ctx.fillStyle = atLimit ? T.pillBgLimit : T.pillBg;
         ctx.beginPath(); ctx.roundRect(bx + 6, py, w - 12, pillH, 3); ctx.fill();
-        ctx.strokeStyle = atLimit ? '#e05252' : '#FF9800';
+        ctx.strokeStyle = atLimit ? T.pillStrokeLimit : T.pillStroke;
         ctx.lineWidth = 0.8;
         ctx.stroke();
 
         // Partition + offset
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#FF9800';
+        ctx.fillStyle = T.pillOffset;
         ctx.font = 'bold 9px Courier New';
         ctx.fillText(`P${partitionId}:${offset}`, bx + 10, py + pillH / 2);
 
         // Delivery count badge
         ctx.textAlign = 'right';
-        ctx.fillStyle = atLimit ? '#fc8181' : '#6e8a6e';
+        ctx.fillStyle = atLimit ? T.pillDcLimit : T.pillDc;
         ctx.font = '8px Courier New';
         ctx.fillText(`×${dc}`, bx + w - 8, py + pillH / 2);
       });
@@ -830,7 +938,7 @@ function drawConsumerRow() {
       // Overflow indicator
       if (c.acquiredRecords.length > maxVisible) {
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillStyle = '#4a5568';
+        ctx.fillStyle = T.pillMore;
         ctx.font = '8px sans-serif';
         ctx.fillText(`+${c.acquiredRecords.length - maxVisible} more`, bx + w / 2, y + h - 3);
       }
@@ -842,14 +950,7 @@ function drawConsumerRow() {
 
 function drawLegend() {
   // Top-right corner mini legend
-  const items = [
-    ['AVAIL',   '#2196F3', '#1a3a5c'],
-    ['ACQ',     '#FF9800', '#7a3d00'],
-    ['ACCEPT',  '#4CAF50', '#1a4a2e'],
-    ['RELEASE', '#9C27B0', '#3b1a5c'],
-    ['REJECT',  '#F44336', '#5c1a1a'],
-    ['ARCH',    '#607D8B', '#1e2430'],
-  ];
+  const items = T.legend;
   const iw = 62, ih = 16, gap = 2;
   const totalH = items.length * (ih + gap);
   const x0 = L.W - iw - 6;
@@ -1074,12 +1175,12 @@ function showConsumerTooltip(c, mouseX, mouseY) {
   const stateLabel = c.state === 'crashed' ? 'CRASHED'
                    : c.state === 'processing' ? 'PROCESSING'
                    : 'IDLE';
-  const stateColor = c.state === 'crashed' ? '#fc8181'
-                   : c.state === 'processing' ? '#FF9800' : '#6e7d91';
+  const stateColor = c.state === 'crashed' ? T.ttStateCrash
+                   : c.state === 'processing' ? T.ttStateProc : T.ttStateIdle;
 
   let recordRows = '';
   if (c.acquiredRecords.length === 0) {
-    recordRows = `<div class="tt-row" style="color:#3d5068;font-style:italic">no records held</div>`;
+    recordRows = `<div class="tt-row" style="color:${T.ttEmpty};font-style:italic">no records held</div>`;
   } else {
     for (const { partitionId, offset } of c.acquiredRecords) {
       const r = sim.partitions[partitionId]?.recordMap.get(offset);
@@ -1087,10 +1188,10 @@ function showConsumerTooltip(c, mouseX, mouseY) {
       const atLimit = r && r.deliveryCount >= config.deliveryCountLimit - 1;
       const lockLeft = r ? Math.max(0, r.lockExpiresAt - sim.tick) : '?';
       recordRows += `
-        <div style="margin:4px 0 2px;padding:4px 6px;background:#0d1a2a;border-radius:4px;border:1px solid #1e3048">
+        <div style="margin:4px 0 2px;padding:4px 6px;background:${T.ttPillBg};border-radius:4px;border:1px solid ${T.ttPillBorder}">
           <div class="tt-row">
             <span class="tt-key">offset</span>
-            <span class="tt-val" style="color:#FF9800">P${partitionId}:${offset}</span>
+            <span class="tt-val" style="color:${T.ttPillOffset}">P${partitionId}:${offset}</span>
           </div>
           <div class="tt-row">
             <span class="tt-key">delivery count</span>
@@ -1106,9 +1207,9 @@ function showConsumerTooltip(c, mouseX, mouseY) {
 
   tooltip.innerHTML = `
     <div class="tt-head">Consumer C${c.id} — <span style="color:${stateColor}">${stateLabel}</span></div>
-    ${c.state === 'crashed' ? `<div class="tt-row"><span class="tt-key">recovery in</span><span class="tt-val" style="color:#fc8181">${c.crashCooldown} ticks</span></div>` : ''}
+    ${c.state === 'crashed' ? `<div class="tt-row"><span class="tt-key">recovery in</span><span class="tt-val" style="color:${T.ttStateCrash}">${c.crashCooldown} ticks</span></div>` : ''}
     ${c.state === 'processing' ? `<div class="tt-row"><span class="tt-key">ticks remaining</span><span class="tt-val">${c.processingTicks}</span></div>` : ''}
-    <div style="margin-top:6px;font-size:10px;color:#6e7d91;text-transform:uppercase;letter-spacing:.05em">Held Records (${c.acquiredRecords.length})</div>
+    <div style="margin-top:6px;font-size:10px;color:${T.ttRecordsLbl};text-transform:uppercase;letter-spacing:.05em">Held Records (${c.acquiredRecords.length})</div>
     ${recordRows}
   `;
   tooltip.style.display = 'block';
@@ -1232,7 +1333,27 @@ canvas.addEventListener('mousemove', e => {
 
 canvas.addEventListener('mouseleave', hideTooltip);
 
+// ═══════════════════════════════════════════════════════════
+// §J  Theme
+// ═══════════════════════════════════════════════════════════
+function setTheme(mode) {
+  T = mode === 'light' ? LIGHT : DARK;
+  CELL_COLOR = T.cellBg;
+  CELL_BORDER = T.cellBorder;
+  document.body.classList.toggle('light', mode === 'light');
+  const btn = document.getElementById('btnTheme');
+  if (btn) btn.textContent = mode === 'light' ? '☾ Dark' : '☀ Light';
+  localStorage.setItem('themeMode', mode);
+}
+
+document.getElementById('btnTheme').addEventListener('click', () => {
+  setTheme(document.body.classList.contains('light') ? 'dark' : 'light');
+});
+
 handleResize();
 initSim();
+// Restore saved theme before first frame
+const _savedTheme = localStorage.getItem('themeMode');
+if (_savedTheme === 'light') setTheme('light');
 requestAnimationFrame(animationFrame);
 window.addEventListener('resize', handleResize);

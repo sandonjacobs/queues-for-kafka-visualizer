@@ -23,6 +23,8 @@
     <input type="range" id="speedSlider" min="0.25" max="2" value="1" step="0.25">
     <span id="speedVal">1×</span>
   </div>
+  <div class="sep"></div>
+  <button class="btn" id="btnTheme">☀ Light</button>
 </div>
 
 <!-- ── Body: sidebar + canvas ── -->
@@ -77,8 +79,8 @@
           <option value="explicit">explicit</option>
         </select>
         <div class="info-popover" id="ackModeInfo">
-          <strong style="color:#c9d1d9">implicit</strong> — records are automatically acknowledged when <code>poll()</code> is called. No explicit ack needed.<br><br>
-          <strong style="color:#c9d1d9">explicit</strong> — the application must call <code>acknowledge(record, AcknowledgeType)</code> for each record. Enables ACCEPT, RELEASE, REJECT, and RENEW outcomes.
+          <strong>implicit</strong> — records are automatically acknowledged when <code>poll()</code> is called. No explicit ack needed.<br><br>
+          <strong>explicit</strong> — the application must call <code>acknowledge(record, AcknowledgeType)</code> for each record. Enables ACCEPT, RELEASE, REJECT, and RENEW outcomes.
         </div>
       </div>
 
@@ -105,8 +107,8 @@
           <option value="record_limit">record_limit</option>
         </select>
         <div class="info-popover" id="acquireInfo">
-          <strong style="color:#c9d1d9">batch_optimized</strong> — the broker may return fewer than <code>max.poll.records</code> to optimise batching efficiency (KIP-1206).<br><br>
-          <strong style="color:#c9d1d9">record_limit</strong> — strictly enforces <code>max.poll.records</code>; the broker will not return more than this count.
+          <strong>batch_optimized</strong> — the broker may return fewer than <code>max.poll.records</code> to optimise batching efficiency (KIP-1206).<br><br>
+          <strong>record_limit</strong> — strictly enforces <code>max.poll.records</code>; the broker will not return more than this count.
         </div>
       </div>
     </div>
@@ -154,9 +156,9 @@
         <div class="stat"><div class="dot" style="background:#F44336"></div>Rejected<span class="count" id="cntRej">0</span></div>
         <div class="stat"><div class="dot" style="background:#607D8B"></div>Archived<span class="count" id="cntArch">0</span></div>
       </div>
-      <div style="margin-top:8px;padding:6px 8px;background:#1a1e0e;border:1px solid #3a3010;border-radius:4px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:10px;color:#c9a84c;font-weight:600;letter-spacing:.03em">Share Group Lag <span style="font-weight:400;color:#6e7d91">(KIP-1226)</span></span>
-        <span id="cntLag" style="font-size:14px;font-weight:700;color:#e2a83a;font-family:Courier New,monospace">0</span>
+      <div id="lagBox">
+        <span class="lag-label">Share Group Lag <span class="lag-kip">(KIP-1226)</span></span>
+        <span id="cntLag">0</span>
       </div>
     </div>
 

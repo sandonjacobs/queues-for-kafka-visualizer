@@ -1,15 +1,32 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:        #0d1117;
-    --surface:   #161b22;
-    --surface2:  #1c2230;
-    --border:    #2a3347;
-    --accent:    #4a9eff;
-    --accent-dim:#1e3a5f;
-    --text:      #c9d1d9;
-    --text-dim:  #6e7d91;
-    --text-mono: 'Courier New', monospace;
+    --bg:            #0d1117;
+    --surface:       #161b22;
+    --surface2:      #1c2230;
+    --border:        #2a3347;
+    --accent:        #4a9eff;
+    --accent-dim:    #1e3a5f;
+    --text:          #c9d1d9;
+    --text-dim:      #6e7d91;
+    --text-mono:     'Courier New', monospace;
+    --tooltip-bg:    #0d1525;
+    --tooltip-border:#3d5068;
+    --popover-bg:    #0d1525;
+  }
+
+  body.light {
+    --bg:            #f0f4f8;
+    --surface:       #ffffff;
+    --surface2:      #f0f4f8;
+    --border:        #d0d8e4;
+    --accent:        #1a6ec0;
+    --accent-dim:    #d0e4f8;
+    --text:          #1a2030;
+    --text-dim:      #5a6880;
+    --tooltip-bg:    #ffffff;
+    --tooltip-border:#c0cad8;
+    --popover-bg:    #f8fafc;
   }
 
   body {
@@ -203,7 +220,7 @@
   .info-popover {
     display: none;
     margin-top: 6px;
-    background: #0d1525;
+    background: var(--popover-bg);
     border: 1px solid var(--accent-dim);
     border-radius: 6px;
     padding: 8px 10px;
@@ -213,6 +230,7 @@
   }
   .info-popover.open { display: block; }
   .info-popover a { color: var(--accent); font-size: 10px; }
+  .info-popover strong { color: var(--text); }
 
   /* Status strip */
   #statusBar {
@@ -389,8 +407,8 @@
   #tooltip {
     position: fixed;
     pointer-events: none;
-    background: #0d1525;
-    border: 1px solid #3d5068;
+    background: var(--tooltip-bg);
+    border: 1px solid var(--tooltip-border);
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 12px;
@@ -432,3 +450,31 @@
     letter-spacing: 0.04em;
     backdrop-filter: blur(2px);
   }
+
+  /* ── Light mode overrides ── */
+  body.light .btn { background: var(--surface2); color: var(--text); }
+  body.light .btn:hover { background: #dce8f4; border-color: #9cb8d8; }
+  body.light .btn.running { background: #d0e4f8; border-color: var(--accent); color: #1a6ec0; }
+  body.light .btn.paused  { background: #fef3e2; border-color: #c8a04a; color: #7a5010; }
+  body.light .btn.danger:hover { background: #fde8e8; }
+  body.light #tooltip .tt-val.dc-warn { color: #c04040; }
+
+  /* ── Lag box (sidebar status strip) ── */
+  #lagBox {
+    margin-top: 8px; padding: 6px 8px;
+    background: #1a1e0e; border: 1px solid #3a3010;
+    border-radius: 4px; display: flex;
+    justify-content: space-between; align-items: center;
+  }
+  body.light #lagBox { background: #fef8e6; border-color: #d8b840; }
+
+  #lagBox .lag-label {
+    font-size: 10px; color: #c9a84c; font-weight: 600; letter-spacing: .03em;
+  }
+  body.light #lagBox .lag-label { color: #8a6010; }
+
+  #lagBox .lag-kip { font-weight: 400; color: #6e7d91; }
+  body.light #lagBox .lag-kip { color: var(--text-dim); }
+
+  #cntLag { font-size: 14px; font-weight: 700; color: #e2a83a; font-family: var(--text-mono); }
+  body.light #cntLag { color: #b07020; }

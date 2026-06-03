@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"fillStyle\\\\|strokeStyle\\\\|#[0-9a-fA-F]\\\\{3,6\\\\}\\\\|rgba\\\\|createLinearGradient\" /Users/sjacobs/claude-plans/queue-viz/app.js)"
+    ]
+  }
+}
