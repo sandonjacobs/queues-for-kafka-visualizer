@@ -4,6 +4,13 @@
 
 An interactive visualizer for **Share Groups** (KIP-932), the queue semantics feature introduced in Apache Kafka 4.0. It lets you watch the Share Partition state machine in action, experiment with consumer scaling, and develop intuition for how acknowledgement modes and delivery limits interact — all without needing a running Kafka environment.
 
+<table>
+<tr>
+<td align="center"><a href="images/dark-mode.png"><img src="images/dark-mode.png" width="480" alt="Dark mode screenshot"></a><br><sub>Dark mode</sub></td>
+<td align="center"><a href="images/light-mode.png"><img src="images/light-mode.png" width="480" alt="Light mode screenshot"></a><br><sub>Light mode</sub></td>
+</tr>
+</table>
+
 ## What it demonstrates
 
 Share Groups allow multiple consumers to compete for records from the **same** partition, enabling true queue semantics alongside Kafka's existing stream processing model. This matters because traditional consumer groups hard-assign each partition to exactly one consumer — scaling requires more partitions. With share groups, you can add consumers without repartitioning.
