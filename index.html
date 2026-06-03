@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KIP-932 Share Group Visualizer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f1117;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  #header {
+    background: #1a1d27;
+    border-bottom: 1px solid #2e3248;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  #header h1 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #a0aec0;
+    white-space: nowrap;
+  }
+  #header h1 span { color: #63b3ed; }
+
+  .btn {
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    color: #e2e8f0;
+    padding: 3px 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.12s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #3d4f63; }
+  .btn.running { background: #2b6cb0; border-color: #63b3ed; }
+  .btn.paused  { background: #744210; border-color: #f6ad55; color: #fbd38d; }
+  .btn.danger  { border-color: #fc8181; color: #fc8181; }
+  .btn.danger:hover { background: #742a2a; }
+
+  .sep { width: 1px; height: 18px; background: #2e3248; flex-shrink: 0; }
+  .speed-label { font-size: 11px; color: #718096; }
+  #speedSlider { width: 70px; accent-color: #63b3ed; vertical-align: middle; }
+
+  /* ── Canvas ── */
+  #canvasWrap { flex: 1; min-height: 0; position: relative; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ── Status / legend bar ── */
+  #statusBar {
+    background: #1a1d27;
+    border-top: 1px solid #2e3248;
+    border-bottom: 1px solid #2e3248;
+    padding: 3px 14px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .stat { font-size: 11px; display: flex; align-items: center; gap: 4px; }
+  .stat .dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .stat .count { color: #fff; font-weight: 700; min-width: 22px; }
+
+  /* ── Controls ── */
+  #controls {
+    background: #1a1d27;
+    padding: 6px 14px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  .ctrl-group { display: flex; flex-direction: column; gap: 3px; }
+  .ctrl-group label {
+    font-size: 10px; color: #718096;
+    font-family: 'Courier New', monospace; white-space: nowrap;
+  }
+  .ctrl-group .cv { font-size: 10px; color: #63b3ed; font-weight: 700; }
+  .ctrl-group input[type=range] { width: 110px; accent-color: #63b3ed; }
+  .ctrl-group select {
+    background: #2d3748; border: 1px solid #4a5568;
+    color: #e2e8f0; padding: 2px 5px; border-radius: 4px;
+    font-size: 11px; cursor: pointer;
+  }
+  .radio-row { display: flex; gap: 6px; }
+  .radio-row label {
+    font-size: 11px; color: #e2e8f0;
+    display: flex; align-items: center; gap: 3px;
+    cursor: pointer; font-family: inherit;
+  }
+  input[type=checkbox] { accent-color: #63b3ed; cursor: pointer; }
+
+  /* record tooltip */
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #1a1d2f;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    color: #e2e8f0;
+    line-height: 1.7;
+    display: none;
+    z-index: 100;
+    min-width: 180px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; }
+  #tooltip .tt-key { color: #718096; }
+  #tooltip .tt-val { color: #e2e8f0; font-weight: 600; }
+  #tooltip .tt-val.state-available  { color: #63b3ed; }
+  #tooltip .tt-val.state-acquired   { color: #FF9800; }
+  #tooltip .tt-val.state-ack-accept { color: #4CAF50; }
+  #tooltip .tt-val.state-ack-release{ color: #9C27B0; }
+  #tooltip .tt-val.state-ack-reject { color: #F44336; }
+  #tooltip .tt-val.state-archived   { color: #607D8B; }
+  #tooltip .tt-val.dc-warn          { color: #fc8181; }
+
+  /* pause overlay hint */
+  #pauseHint {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    background: rgba(0,0,0,0.72);
+    border: 1px solid #f6ad55;
+    color: #fbd38d;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+    display: none;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>KIP-932 <span>Share Group</span> Visualizer</h1>
+  <div class="sep"></div>
+  <button class="btn running" id="btnPlay">⏸ Pause</button>
+  <button class="btn" id="btnStep" title="Step one tick (while paused)">⏭ Step</button>
+  <button class="btn" id="btnReset">↺ Reset</button>
+  <button class="btn danger" id="btnCrash">⚡ Crash Consumer</button>
+  <div class="sep"></div>
+  <span class="speed-label">Speed</span>
+  <input type="range" id="speedSlider" min="0.25" max="2" value="1" step="0.25">
+  <span class="speed-label" id="speedVal">1×</span>
+</div>
+
+<div id="canvasWrap">
+  <canvas id="viz"></canvas>
+  <div id="pauseHint">⏸ PAUSED — inspect partition state</div>
+</div>
+<div id="tooltip"></div>
+
+<div id="statusBar">
+  <div class="stat"><div class="dot" style="background:#2196F3"></div>Available<span class="count" id="cntAvail">0</span></div>
+  <div class="stat"><div class="dot" style="background:#FF9800"></div>Acquired<span class="count" id="cntAcq">0</span></div>
+  <div class="stat"><div class="dot" style="background:#4CAF50"></div>Accepted (total)<span class="count" id="cntAcc">0</span></div>
+  <div class="stat"><div class="dot" style="background:#9C27B0"></div>Released (total)<span class="count" id="cntRel">0</span></div>
+  <div class="stat"><div class="dot" style="background:#F44336"></div>Rejected (total)<span class="count" id="cntRej">0</span></div>
+  <div class="stat"><div class="dot" style="background:#607D8B"></div>Archived (total)<span class="count" id="cntArch">0</span></div>
+  <div class="sep" style="margin-left:4px"></div>
+  <div class="stat" style="font-family:monospace;font-size:10px;color:#718096">Space = pause/resume</div>
+</div>
+
+<div id="controls">
+  <div class="ctrl-group">
+    <label>partitions</label>
+    <div class="radio-row" id="partRadios"></div>
+  </div>
+  <div class="ctrl-group">
+    <label>consumers <span class="cv" id="consumerVal">1</span></label>
+    <input type="range" id="consumerSlider" min="1" max="8" value="1" step="1">
+  </div>
+  <div class="ctrl-group">
+    <label>share.acknowledgement.mode</label>
+    <select id="ackMode">
+      <option value="implicit">implicit</option>
+      <option value="explicit">explicit</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>share.acquire.mode</label>
+    <select id="acquireMode">
+      <option value="batch_optimized">batch_optimized</option>
+      <option value="record_limit">record_limit</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>share.renew.acknowledge.enable</label>
+    <label style="font-family:inherit;font-size:11px;color:#e2e8f0;display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="renewEnable" checked> enabled
+    </label>
+  </div>
+  <div class="ctrl-group">
+    <label>max.poll.records <span class="cv" id="pollVal">3</span></label>
+    <input type="range" id="pollSlider" min="1" max="10" value="3" step="1">
+  </div>
+  <div class="ctrl-group">
+    <label>share.delivery.count.limit <span class="cv" id="deliveryVal">5</span></label>
+    <input type="range" id="deliverySlider" min="2" max="10" value="5" step="1">
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════
+// §A  Constants & enums
+// ═══════════════════════════════════════════════════════════
+const STATE = { AVAILABLE:'available', ACQUIRED:'acquired', ACKNOWLEDGED:'acknowledged', ARCHIVED:'archived' };
+const ACK   = { ACCEPT:'accept', RELEASE:'release', REJECT:'reject', RENEW:'renew' };
+
+const CELL_COLOR = {
+  available:    '#1a3a5c',
+  acquired:     '#7a3d00',
+  acknowledged_accept: '#1a4a2e',
+  acknowledged_release:'#3b1a5c',
+  acknowledged_reject: '#5c1a1a',
+  archived:     '#1e2430',
+};
+const CELL_BORDER = {
+  available:    '#2196F3',
+  acquired:     '#FF9800',
+  acknowledged_accept: '#4CAF50',
+  acknowledged_release:'#9C27B0',
+  acknowledged_reject: '#F44336',
+  archived:     '#3d4f63',
+};
+const STATE_LABEL = {
+  available:    'AVAIL',
+  acquired:     'ACQ',
+  acknowledged_accept:  'ACCEPT',
+  acknowledged_release: 'RELEASE',
+  acknowledged_reject:  'REJECT',
+  archived:     'ARCH',
+};
+const FLASH_TICKS  = 8;
+const LOCK_TICKS   = 28;
+const MAX_RECORDS  = 40;
+const P_PRODUCE    = 0.35;
+const P_CRASH      = 0.004;
+const MIN_CELL_W = 34;   // minimum cell width before we start windowing
+const MAX_CELL_W = 70;   // maximum cell width
+
+// ═══════════════════════════════════════════════════════════
+// §B  Data constructors
+// ═══════════════════════════════════════════════════════════
+let _nextId = 0;
+
+function makeRecord(partitionId, offset) {
+  return {
+    id: _nextId++,
+    partitionId,
+    offset,
+    state: STATE.AVAILABLE,
+    ackType: null,
+    deliveryCount: 0,
+    acquiredBy: null,
+    lockExpiresAt: Infinity,
+    stateChangedAt: 0,
+    renewPulse: 0,
+    flashAge: 0,   // render frames since last state change (for flash)
+  };
+}
+
+function makePartition(id) {
+  return {
+    id,
+    // keyed by offset for O(1) lookup
+    recordMap: new Map(),
+    spso: 0,   // Share Partition Start Offset
+    speo: -1,  // Share Partition End Offset (last produced offset; -1 = empty)
+    nextOffset: 0,
+    // running totals per partition for display
+    totalAccepted: 0, totalReleased: 0, totalRejected: 0, totalArchived: 0,
+  };
+}
+
+function makeConsumer(id) {
+  return {
+    id,
+    state: 'idle',          // idle | processing | crashed
+    acquiredRecords: [],    // array of {partitionId, offset}
+    processingTicks: 0,
+    crashCooldown: 0,
+    shake: 0,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// §C  SimState & config
+// ═══════════════════════════════════════════════════════════
+const config = {
+  partitionCount: 1,
+  consumerCount: 1,
+  acknowledgementMode: 'implicit',
+  acquireMode: 'batch_optimized',
+  renewAcknowledgeEnable: true,
+  maxPollRecords: 3,
+  deliveryCountLimit: 5,
+  speedMultiplier: 1,
+};
+
+let sim = null;
+let running = true;
+
+function initSim() {
+  _nextId = 0;
+  sim = {
+    tick: 0,
+    partitions: Array.from({length: config.partitionCount}, (_, i) => makePartition(i)),
+    consumers:  Array.from({length: config.consumerCount},  (_, i) => makeConsumer(i)),
+    counters: { accepted: 0, released: 0, rejected: 0, archived: 0 },
+  };
+}
+
+// helper: all live records across all partitions
+function* allRecords() {
+  for (const p of sim.partitions)
+    for (const r of p.recordMap.values())
+      yield r;
+}
+
+function liveCount() {
+  let n = 0;
+  for (const p of sim.partitions) n += p.recordMap.size;
+  return n;
+}
+
+// ═══════════════════════════════════════════════════════════
+// §D  Simulation
+// ═══════════════════════════════════════════════════════════
+
+function produceRecords() {
+  for (const p of sim.partitions) {
+    if (liveCount() >= MAX_RECORDS) break;
+    if (Math.random() < P_PRODUCE) {
+      const offset = p.nextOffset++;
+      p.speo = offset;
+      const r = makeRecord(p.id, offset);
+      p.recordMap.set(offset, r);
+      if (offset === 0) p.spso = 0;
+    }
+  }
+}
+
+function consumerPollStep() {
+  // Gather all available records sorted by partition then offset (FIFO — older records first)
+  // This matches how the broker delivers from SPSO forward in real share partitions.
+  const avail = [];
+  for (const r of allRecords())
+    if (r.state === STATE.AVAILABLE) avail.push(r);
+  if (!avail.length) return;
+  avail.sort((a, b) => a.partitionId - b.partitionId || a.offset - b.offset);
+
+  for (const c of sim.consumers) {
+    if (c.state !== 'idle') continue;
+    let maxTake = config.maxPollRecords;
+    if (config.acquireMode === 'batch_optimized')
+      maxTake = Math.max(1, Math.floor(maxTake * (0.5 + Math.random() * 0.6)));
+
+    // Each consumer gets a fresh view of still-available records (earlier consumers may have taken some)
+    const pool = avail.filter(r => r.state === STATE.AVAILABLE);
+    const take = pool.slice(0, maxTake);
+    if (!take.length) continue;
+
+    for (const r of take) {
+      r.state = STATE.ACQUIRED;
+      r.deliveryCount++;
+      r.acquiredBy = c.id;
+      r.lockExpiresAt = sim.tick + LOCK_TICKS;
+      r.stateChangedAt = sim.tick;
+      r.flashAge = 0;
+      c.acquiredRecords.push({ partitionId: r.partitionId, offset: r.offset });
+    }
+    c.state = 'processing';
+    c.processingTicks = 8 + Math.floor(Math.random() * 12);
+  }
+}
+
+function consumerAckStep() {
+  for (const c of sim.consumers) {
+    if (c.state !== 'processing') continue;
+    if (--c.processingTicks > 0) continue;
+
+    const toAck = c.acquiredRecords.splice(0);
+    c.state = 'idle';
+
+    for (const { partitionId, offset } of toAck) {
+      const p = sim.partitions[partitionId];
+      const r = p.recordMap.get(offset);
+      if (!r || r.state !== STATE.ACQUIRED) continue;
+
+      let ackType;
+      if (config.acknowledgementMode === 'implicit') {
+        ackType = ACK.ACCEPT;
+      } else {
+        const roll = Math.random();
+        if (roll < 0.65)       ackType = ACK.ACCEPT;
+        else if (roll < 0.80)  ackType = ACK.RELEASE;
+        else if (roll < 0.90)  ackType = ACK.REJECT;
+        else                   ackType = config.renewAcknowledgeEnable ? ACK.RENEW : ACK.RELEASE;
+      }
+      applyAck(r, c, ackType);
+    }
+  }
+}
+
+function applyAck(r, consumer, ackType) {
+  if (ackType === ACK.RENEW) {
+    r.lockExpiresAt = sim.tick + LOCK_TICKS;
+    r.renewPulse = 15;
+    consumer.acquiredRecords.push({ partitionId: r.partitionId, offset: r.offset });
+    consumer.state = 'processing';
+    consumer.processingTicks = 8 + Math.floor(Math.random() * 10);
+    return;
+  }
+  r.acquiredBy = null;
+  r.ackType = ackType;
+  r.state = STATE.ACKNOWLEDGED;
+  r.stateChangedAt = sim.tick;
+  r.flashAge = 0;
+}
+
+function lockTimeoutStep() {
+  for (const r of allRecords()) {
+    if (r.state === STATE.ACQUIRED && sim.tick > r.lockExpiresAt) {
+      const c = sim.consumers.find(x => x.id === r.acquiredBy);
+      if (c) c.acquiredRecords = c.acquiredRecords.filter(x => !(x.partitionId === r.partitionId && x.offset === r.offset));
+      r.state = STATE.AVAILABLE;
+      r.acquiredBy = null;
+      r.lockExpiresAt = Infinity;
+      r.stateChangedAt = sim.tick;
+      r.flashAge = 0;
+    }
+  }
+}
+
+function crashStep() {
+  for (const c of sim.consumers) {
+    if (c.state === 'crashed') {
+      if (--c.crashCooldown <= 0) { c.state = 'idle'; c.shake = 0; }
+      continue;
+    }
+    if (c.state === 'processing' && Math.random() < P_CRASH) crashConsumer(c);
+  }
+}
+
+function crashConsumer(c) {
+  for (const { partitionId, offset } of c.acquiredRecords) {
+    const r = sim.partitions[partitionId].recordMap.get(offset);
+    if (!r) continue;
+    r.state = STATE.AVAILABLE;
+    r.acquiredBy = null;
+    r.lockExpiresAt = Infinity;
+    r.stateChangedAt = sim.tick;
+    r.flashAge = 0;
+  }
+  c.acquiredRecords = [];
+  c.state = 'crashed';
+  c.crashCooldown = 20;
+  c.shake = 20;
+}
+
+function transientCleanup() {
+  for (const p of sim.partitions) {
+    for (const r of p.recordMap.values()) {
+      if (r.state !== STATE.ACKNOWLEDGED) continue;
+      if (sim.tick - r.stateChangedAt < FLASH_TICKS) continue;
+
+      if (r.ackType === ACK.ACCEPT) {
+        p.recordMap.delete(r.offset);
+        p.totalAccepted++;
+        sim.counters.accepted++;
+        advanceSPSO(p);
+      } else if (r.ackType === ACK.RELEASE) {
+        r.state = STATE.AVAILABLE;
+        r.ackType = null;
+        r.lockExpiresAt = Infinity;
+        r.stateChangedAt = sim.tick;
+        r.flashAge = 0;
+        p.totalReleased++;
+        sim.counters.released++;
+      } else if (r.ackType === ACK.REJECT) {
+        p.recordMap.delete(r.offset);
+        p.totalRejected++;
+        sim.counters.rejected++;
+        advanceSPSO(p);
+      }
+    }
+  }
+}
+
+function advanceSPSO(p) {
+  // SPSO = lowest offset of any live record in this partition
+  if (p.recordMap.size === 0) {
+    p.spso = p.nextOffset;
+    return;
+  }
+  let min = Infinity;
+  for (const offset of p.recordMap.keys()) if (offset < min) min = offset;
+  p.spso = min;
+}
+
+function archiveCheck() {
+  for (const p of sim.partitions) {
+    for (const r of p.recordMap.values()) {
+      if (r.state === STATE.AVAILABLE && r.deliveryCount >= config.deliveryCountLimit) {
+        p.recordMap.delete(r.offset);
+        p.totalArchived++;
+        sim.counters.archived++;
+        advanceSPSO(p);
+      }
+    }
+  }
+}
+
+function simulationTick() {
+  sim.tick++;
+  produceRecords();
+  consumerPollStep();
+  consumerAckStep();
+  lockTimeoutStep();
+  crashStep();
+  transientCleanup();
+  archiveCheck();
+  updateStatusBar();
+}
+
+// ═══════════════════════════════════════════════════════════
+// §E  Layout
+// ═══════════════════════════════════════════════════════════
+const canvas = document.getElementById('viz');
+const ctx = canvas.getContext('2d');
+let L = {};
+
+function computeLayout() {
+  const W = canvas.width;
+  const H = canvas.height;
+  const np = config.partitionCount;
+  const nc = config.consumerCount;
+
+  // Consumer row at bottom: fixed height
+  const CONSUMER_ROW_H = Math.max(44, Math.min(60, H * 0.14));
+  const PARTITION_AREA_H = H - CONSUMER_ROW_H - 8;
+  // Cap lane height so a single partition doesn't sprawl; min for 3 partitions
+  const LANE_H = Math.min(200, PARTITION_AREA_H / np);
+
+  // Left margin for partition label + SPSO info
+  const LEFT_MARGIN = 72;
+  // Right margin for SPEO label
+  const RIGHT_MARGIN = 64;
+  const USABLE_W = W - LEFT_MARGIN - RIGHT_MARGIN;
+
+  // CELL_W is computed dynamically per partition in viewportFor()
+  const CELL_H = LANE_H - 42; // room for offset pill labels top and stats bottom
+
+  // Consumer box sizing
+  const CBOX_W = Math.max(52, Math.min(72, (W - 20) / Math.max(nc, 1) - 6));
+  const CBOX_H = CONSUMER_ROW_H - 10;
+  const CBOX_Y = H - CONSUMER_ROW_H;
+  // center the row
+  const cboxTotalW = nc * CBOX_W + (nc - 1) * 6;
+  const CBOX_X0 = (W - cboxTotalW) / 2;
+
+  L = { W, H, np, nc, LANE_H, LEFT_MARGIN, RIGHT_MARGIN, USABLE_W,
+        CELL_H, PARTITION_AREA_H,
+        CONSUMER_ROW_H, CBOX_W, CBOX_H, CBOX_Y, CBOX_X0 };
+}
+
+// For a given partition, compute viewport range + dynamic cell width.
+// Always anchors at SPSO so both markers are always visible.
+function viewportFor(p) {
+  if (p.speo < 0) return { start: 0, end: -1, cellW: MAX_CELL_W };
+
+  const spso = p.spso;
+  const speo = p.speo;
+  const totalCells = speo - spso + 1;
+
+  // Try to fit all cells from SPSO→SPEO
+  const idealW = Math.floor(L.USABLE_W / totalCells);
+
+  if (idealW >= MIN_CELL_W) {
+    // All cells fit — show everything, clamp cell width
+    return { start: spso, end: speo, cellW: Math.min(idealW, MAX_CELL_W) };
+  }
+
+  // Too many cells — show a window ending at SPEO, starting as close to SPSO as possible
+  const maxFit = Math.floor(L.USABLE_W / MIN_CELL_W);
+  const start  = Math.max(spso, speo - maxFit + 1);
+  return { start, end: speo, cellW: MIN_CELL_W, clipped: start > spso, spso };
+}
+
+// ═══════════════════════════════════════════════════════════
+// §F  Rendering
+// ═══════════════════════════════════════════════════════════
+
+function drawAcceptedGap(x, y, w, h) {
+  // A slot in the viewport range that has been accepted/archived — show as a faint checkmark cell
+  ctx.fillStyle = '#111820';
+  ctx.beginPath(); ctx.roundRect(x + 1, y, w - 2, h, 3); ctx.fill();
+  ctx.strokeStyle = '#1e2a3a'; ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#2a4a3a';
+  ctx.font = `bold ${Math.min(14, h * 0.3)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('✓', x + w / 2, y + h / 2);
+}
+
+function cellKey(r) {
+  if (r.state === STATE.ACKNOWLEDGED) {
+    if (r.ackType === ACK.ACCEPT)  return 'acknowledged_accept';
+    if (r.ackType === ACK.RELEASE) return 'acknowledged_release';
+    if (r.ackType === ACK.REJECT)  return 'acknowledged_reject';
+  }
+  return r.state;
+}
+
+function drawCell(x, y, w, h, r, offset) {
+  const key = r ? cellKey(r) : 'archived';
+
+  // Cell background
+  ctx.fillStyle = CELL_COLOR[key] || '#1a1d27';
+  ctx.beginPath();
+  ctx.roundRect(x + 1, y, w - 2, h, 3);
+  ctx.fill();
+
+  // Border — glow during flash
+  const flashing = r && (performance.now() / 120 + r.id) % 2 < 1 &&
+                   r.flashAge !== undefined && r.flashAge < 12;
+  ctx.strokeStyle = CELL_BORDER[key] || '#3d4f63';
+  ctx.lineWidth = flashing ? 2 : 1;
+  if (flashing) { ctx.shadowColor = CELL_BORDER[key]; ctx.shadowBlur = 8; }
+  ctx.beginPath();
+  ctx.roundRect(x + 1, y, w - 2, h, 3);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Offset label — pill background above cell for legibility
+  const offStr = String(offset);
+  ctx.font = 'bold 10px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const offW = ctx.measureText(offStr).width + 8;
+  const offH = 14;
+  const offX = x + w / 2 - offW / 2;
+  const offY = y - offH - 2;
+  ctx.fillStyle = '#1e2a40';
+  ctx.beginPath(); ctx.roundRect(offX, offY, offW, offH, 3); ctx.fill();
+  ctx.fillStyle = '#90aed4';
+  ctx.fillText(offStr, x + w / 2, offY + offH / 2);
+
+  if (!r) return;
+
+  // State label
+  const label = STATE_LABEL[key] || key;
+  const fontSize = Math.max(9, Math.min(13, (w - 6) / label.length * 1.7));
+  ctx.fillStyle = CELL_BORDER[key] || '#aaa';
+  ctx.font = `bold ${fontSize}px Courier New`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, x + w / 2, h >= 42 ? y + h * 0.30 : y + h * 0.38);
+
+  // Delivery count — always show on ACQ cells; only on redelivery for others
+  const showDC = r.state === STATE.ACQUIRED
+    ? r.deliveryCount >= 1
+    : r.deliveryCount > 1;
+  if (showDC && h >= 30) {
+    const dcLabel = `×${r.deliveryCount}`;
+    const atLimit = r.deliveryCount >= config.deliveryCountLimit - 1;
+    ctx.fillStyle = atLimit ? '#fc8181' : (r.state === STATE.ACQUIRED ? '#fbd38d' : '#718096');
+    ctx.font = `bold ${Math.max(9, Math.min(11, w / 3.5))}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(dcLabel, x + w / 2, y + h * 0.62);
+  }
+
+  // Consumer badge (bottom of ACQ cell)
+  if (r.state === STATE.ACQUIRED && r.acquiredBy !== null && h >= 36) {
+    ctx.fillStyle = '#FF9800';
+    ctx.font = `bold ${Math.max(9, Math.min(11, w / 4))}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`C${r.acquiredBy}`, x + w / 2, y + h - 2);
+  }
+
+  // RENEW pulse ring
+  if (r.renewPulse > 0) {
+    const progress = 1 - r.renewPulse / 15;
+    ctx.beginPath();
+    ctx.roundRect(x + 1 - progress * 4, y - progress * 4,
+                  w - 2 + progress * 8, h + progress * 8, 5);
+    ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - progress)})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    r.renewPulse--;
+  }
+}
+
+function drawPartitionLane(p, laneIdx) {
+  const vp = viewportFor(p);
+  const { start, end } = vp;
+  const cw = vp.cellW;
+  const laneY = laneIdx * L.LANE_H;
+  const cellTop = laneY + 24;  // room for offset pill labels above
+  const ch = L.CELL_H;
+
+  // Lane background
+  ctx.fillStyle = '#141820';
+  ctx.beginPath();
+  ctx.roundRect(L.LEFT_MARGIN - 4, laneY + 4, L.USABLE_W + 8, L.LANE_H - 8, 5);
+  ctx.fill();
+  ctx.strokeStyle = '#222840';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Partition label
+  ctx.fillStyle = '#4a6080';
+  ctx.font = 'bold 12px Courier New';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`P${p.id}`, L.LEFT_MARGIN - 10, laneY + L.LANE_H / 2);
+
+  if (end < 0) {
+    // Empty partition — placeholder
+    ctx.fillStyle = '#2d3748';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('awaiting records…', L.LEFT_MARGIN + L.USABLE_W / 2, laneY + L.LANE_H / 2);
+    return;
+  }
+
+  // Draw cells from start to end
+  const numCells = end - start + 1;
+  for (let offset = start; offset <= end; offset++) {
+    const col = offset - start;
+    const cx = L.LEFT_MARGIN + col * cw;
+    const r = p.recordMap.get(offset);
+    if (r) {
+      drawCell(cx, cellTop, cw, ch, r, offset);
+    } else {
+      // Gap: offset was produced but record was accepted/rejected and removed from map
+      // Draw the offset label above the gap (same pill style as drawCell)
+      const gapStr = String(offset);
+      ctx.font = 'bold 10px Courier New';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const gapOffW = ctx.measureText(gapStr).width + 8;
+      const gapOffH = 14;
+      const gapOffX = cx + cw / 2 - gapOffW / 2;
+      const gapOffY = cellTop - gapOffH - 2;
+      ctx.fillStyle = '#1a2030';
+      ctx.beginPath(); ctx.roundRect(gapOffX, gapOffY, gapOffW, gapOffH, 3); ctx.fill();
+      ctx.fillStyle = '#4a6080';
+      ctx.fillText(gapStr, cx + cw / 2, gapOffY + gapOffH / 2);
+      drawAcceptedGap(cx, cellTop, cw, ch);
+    }
+  }
+
+  // ── SPSO marker ──
+  if (vp.clipped) {
+    // SPSO is before the viewport window — pin indicator at left edge
+    const spsoX = L.LEFT_MARGIN;
+    ctx.fillStyle = '#2a5c3a';
+    ctx.beginPath(); ctx.roundRect(spsoX, laneY + 6, 56, L.LANE_H - 12, 3); ctx.fill();
+    ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#4CAF50';
+    ctx.font = 'bold 8px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('SPSO', spsoX + 28, laneY + 9);
+    ctx.font = '9px Courier New';
+    ctx.fillText(`=${p.spso}`, spsoX + 28, laneY + 20);
+    ctx.font = '8px Courier New';
+    ctx.fillStyle = '#2a7a4a';
+    ctx.fillText(`←${start - p.spso} more`, spsoX + 28, laneY + 32);
+  } else {
+    const spsoCol = p.spso - start;
+    const spsoX   = L.LEFT_MARGIN + spsoCol * cw;
+    ctx.beginPath();
+    ctx.moveTo(spsoX, laneY + 6);
+    ctx.lineTo(spsoX, laneY + L.LANE_H - 10);
+    ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#4CAF50';
+    ctx.font = 'bold 9px Courier New';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText('SPSO', spsoX + 2, laneY + 14);
+    ctx.font = '9px Courier New';
+    ctx.fillText(`=${p.spso}`, spsoX + 2, laneY + 23);
+    ctx.fillStyle = '#4CAF50';
+    ctx.beginPath();
+    ctx.moveTo(spsoX, laneY + L.LANE_H / 2 - 4);
+    ctx.lineTo(spsoX + 7, laneY + L.LANE_H / 2);
+    ctx.lineTo(spsoX, laneY + L.LANE_H / 2 + 4);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // ── SPEO marker ──
+  const speoX = L.LEFT_MARGIN + numCells * cw;
+
+  ctx.beginPath();
+  ctx.moveTo(speoX, laneY + 6);
+  ctx.lineTo(speoX, laneY + L.LANE_H - 10);
+  ctx.strokeStyle = '#63b3ed';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#63b3ed';
+  ctx.font = 'bold 9px Courier New';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`SPEO`, speoX - 2, laneY + 14);
+  ctx.font = '9px Courier New';
+  ctx.fillText(`=${p.speo}`, speoX - 2, laneY + 23);
+
+  // Arrow right on SPEO
+  ctx.fillStyle = '#63b3ed';
+  ctx.beginPath();
+  ctx.moveTo(speoX - 7, laneY + L.LANE_H / 2 - 4);
+  ctx.lineTo(speoX, laneY + L.LANE_H / 2);
+  ctx.lineTo(speoX - 7, laneY + L.LANE_H / 2 + 4);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Partition stats (bottom right of lane) ──
+  ctx.fillStyle = '#2d4060';
+  ctx.font = '9px Courier New';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  const statsStr = `acc:${p.totalAccepted}  rel:${p.totalReleased}  rej:${p.totalRejected}  arch:${p.totalArchived}`;
+  ctx.fillText(statsStr, L.LEFT_MARGIN + L.USABLE_W, laneY + L.LANE_H - 4);
+
+  // ── Live record count in lane ──
+  ctx.fillStyle = '#2d4060';
+  ctx.font = '9px Courier New';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`live: ${p.recordMap.size}`, L.LEFT_MARGIN, laneY + L.LANE_H - 4);
+}
+
+function drawConsumerRow() {
+  const y = L.CBOX_Y;
+  const h = L.CBOX_H;
+  const w = L.CBOX_W;
+
+  for (let i = 0; i < sim.consumers.length; i++) {
+    const c = sim.consumers[i];
+    const x = L.CBOX_X0 + i * (w + 6);
+    const shakeX = c.shake > 0 ? Math.sin(c.shake * 1.3) * 2 : 0;
+    const bx = x + shakeX;
+
+    if (c.state === 'crashed') { ctx.shadowColor = '#F44336'; ctx.shadowBlur = 10; }
+    ctx.fillStyle = c.state === 'crashed' ? '#2a0808'
+                  : c.acquiredRecords.length > 0 ? '#1a2a0a' : '#1a1d27';
+    ctx.beginPath(); ctx.roundRect(bx, y, w, h, 4); ctx.fill();
+    ctx.strokeStyle = c.state === 'crashed' ? '#F44336'
+                    : c.acquiredRecords.length > 0 ? '#FF9800' : '#3d4f63';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = c.state === 'crashed' ? '#fc8181' : '#a0aec0';
+    ctx.font = `bold ${Math.min(11, w * 0.18)}px Courier New`;
+    ctx.fillText(`C${c.id}`, bx + w / 2, y + 3);
+
+    ctx.font = `${Math.min(9, w * 0.14)}px sans-serif`;
+    ctx.fillStyle = c.state === 'crashed' ? '#fc8181'
+                  : c.state === 'processing' ? '#FF9800' : '#4a5568';
+    const stateLabel = c.state === 'crashed' ? '💥 crashed'
+                     : c.state === 'processing' ? `proc (${c.processingTicks})` : 'idle';
+    ctx.fillText(stateLabel, bx + w / 2, y + h * 0.45);
+
+    // show held offsets
+    if (c.acquiredRecords.length > 0 && h >= 36) {
+      const offsets = c.acquiredRecords.map(x => `P${x.partitionId}:${x.offset}`).join(' ');
+      ctx.font = `8px Courier New`;
+      ctx.fillStyle = '#FF9800';
+      ctx.fillText(offsets.slice(0, 14), bx + w / 2, y + h - 10);
+    }
+
+    if (c.shake > 0) c.shake--;
+  }
+}
+
+function drawLegend() {
+  // Top-right corner mini legend
+  const items = [
+    ['AVAIL',   '#2196F3', '#1a3a5c'],
+    ['ACQ',     '#FF9800', '#7a3d00'],
+    ['ACCEPT',  '#4CAF50', '#1a4a2e'],
+    ['RELEASE', '#9C27B0', '#3b1a5c'],
+    ['REJECT',  '#F44336', '#5c1a1a'],
+    ['ARCH',    '#607D8B', '#1e2430'],
+  ];
+  const iw = 62, ih = 16, gap = 2;
+  const totalH = items.length * (ih + gap);
+  const x0 = L.W - iw - 6;
+  const y0 = 8;
+  for (let i = 0; i < items.length; i++) {
+    const [label, border, bg] = items[i];
+    const y = y0 + i * (ih + gap);
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.roundRect(x0, y, iw, ih, 2); ctx.fill();
+    ctx.strokeStyle = border; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = border;
+    ctx.font = 'bold 8px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x0 + iw / 2, y + ih / 2);
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, L.W, L.H);
+  if (!sim) return;
+
+  // Tick flashAge for all records
+  for (const r of allRecords()) r.flashAge++;
+
+  for (let i = 0; i < sim.partitions.length; i++)
+    drawPartitionLane(sim.partitions[i], i);
+
+  drawConsumerRow();
+  drawLegend();
+}
+
+// ═══════════════════════════════════════════════════════════
+// §G  Animation loop
+// ═══════════════════════════════════════════════════════════
+const BASE_TICK_MS = 220;
+let lastTickTime = 0;
+
+function animationFrame(ts) {
+  const tickMs = BASE_TICK_MS / config.speedMultiplier;
+  if (running && ts - lastTickTime >= tickMs) {
+    simulationTick();
+    lastTickTime = ts;
+  }
+  render();
+  requestAnimationFrame(animationFrame);
+}
+
+// ═══════════════════════════════════════════════════════════
+// §H  Status bar
+// ═══════════════════════════════════════════════════════════
+function updateStatusBar() {
+  let avail = 0, acq = 0;
+  for (const r of allRecords()) {
+    if (r.state === STATE.AVAILABLE) avail++;
+    else if (r.state === STATE.ACQUIRED) acq++;
+  }
+  document.getElementById('cntAvail').textContent = avail;
+  document.getElementById('cntAcq').textContent   = acq;
+  document.getElementById('cntAcc').textContent   = sim.counters.accepted;
+  document.getElementById('cntRel').textContent   = sim.counters.released;
+  document.getElementById('cntRej').textContent   = sim.counters.rejected;
+  document.getElementById('cntArch').textContent  = sim.counters.archived;
+}
+
+// ═══════════════════════════════════════════════════════════
+// §I  Controls & toolbar
+// ═══════════════════════════════════════════════════════════
+function setRunning(val) {
+  running = val;
+  const btn = document.getElementById('btnPlay');
+  const hint = document.getElementById('pauseHint');
+  if (running) {
+    btn.textContent = '⏸ Pause';
+    btn.className = 'btn running';
+    hint.style.display = 'none';
+  } else {
+    btn.textContent = '▶ Resume';
+    btn.className = 'btn paused';
+    hint.style.display = 'block';
+  }
+}
+
+document.getElementById('btnPlay').addEventListener('click', () => setRunning(!running));
+
+document.getElementById('btnStep').addEventListener('click', () => {
+  if (!running && sim) { simulationTick(); render(); }
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  initSim(); computeLayout();
+});
+
+document.getElementById('btnCrash').addEventListener('click', () => {
+  if (!sim) return;
+  const eligible = sim.consumers.filter(c => c.state !== 'crashed');
+  if (!eligible.length) return;
+  crashConsumer(eligible[Math.floor(Math.random() * eligible.length)]);
+});
+
+document.getElementById('speedSlider').addEventListener('input', e => {
+  config.speedMultiplier = +e.target.value;
+  const v = +e.target.value;
+  document.getElementById('speedVal').textContent = (v === Math.floor(v) ? v : v.toFixed(2)).toString() + '×';
+});
+
+document.getElementById('consumerSlider').addEventListener('input', e => {
+  const n = +e.target.value;
+  document.getElementById('consumerVal').textContent = n;
+  if (!sim) return;
+  if (n > sim.consumers.length) {
+    while (sim.consumers.length < n) sim.consumers.push(makeConsumer(sim.consumers.length));
+  } else {
+    const removed = sim.consumers.splice(n);
+    for (const c of removed) {
+      for (const { partitionId, offset } of c.acquiredRecords) {
+        const r = sim.partitions[partitionId]?.recordMap.get(offset);
+        if (r) { r.state = STATE.AVAILABLE; r.acquiredBy = null; r.lockExpiresAt = Infinity; }
+      }
+    }
+  }
+  config.consumerCount = n;
+  computeLayout();
+});
+
+function buildPartitionRadios() {
+  const wrap = document.getElementById('partRadios');
+  wrap.innerHTML = '';
+  for (let i = 1; i <= 3; i++) {
+    const lbl = document.createElement('label');
+    const inp = document.createElement('input');
+    inp.type = 'radio'; inp.name = 'partCount'; inp.value = i;
+    if (i === config.partitionCount) inp.checked = true;
+    inp.addEventListener('change', () => { config.partitionCount = i; initSim(); computeLayout(); });
+    lbl.appendChild(inp);
+    lbl.appendChild(document.createTextNode(' ' + i));
+    wrap.appendChild(lbl);
+  }
+}
+
+document.getElementById('ackMode').addEventListener('change', e => { config.acknowledgementMode = e.target.value; });
+document.getElementById('acquireMode').addEventListener('change', e => { config.acquireMode = e.target.value; });
+document.getElementById('renewEnable').addEventListener('change', e => { config.renewAcknowledgeEnable = e.target.checked; });
+document.getElementById('pollSlider').addEventListener('input', e => {
+  config.maxPollRecords = +e.target.value;
+  document.getElementById('pollVal').textContent = e.target.value;
+});
+document.getElementById('deliverySlider').addEventListener('input', e => {
+  config.deliveryCountLimit = +e.target.value;
+  document.getElementById('deliveryVal').textContent = e.target.value;
+});
+
+// Spacebar to pause/resume
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+    e.preventDefault();
+    setRunning(!running);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// §J  Resize & bootstrap
+// ═══════════════════════════════════════════════════════════
+function handleResize() {
+  const wrap = document.getElementById('canvasWrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  computeLayout();
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ═══════════════════════════════════════════════════════════
+// §L  Tooltip / hit-test
+// ═══════════════════════════════════════════════════════════
+const tooltip = document.getElementById('tooltip');
+
+// Given canvas pixel coords, return the record under the cursor (or null)
+function recordAtPoint(px, py) {
+  if (!sim) return null;
+  for (let i = 0; i < sim.partitions.length; i++) {
+    const p = sim.partitions[i];
+    const vp = viewportFor(p);
+    if (vp.end < 0) continue;
+    const { start, end, cellW } = vp;
+    const laneY   = i * L.LANE_H;
+    const cellTop = laneY + 20;
+    const ch      = L.CELL_H;
+
+    if (py < cellTop || py > cellTop + ch) continue;
+
+    for (let offset = start; offset <= end; offset++) {
+      const col = offset - start;
+      const cx  = L.LEFT_MARGIN + col * cellW;
+      if (px >= cx + 1 && px <= cx + cellW - 2) {
+        const r = p.recordMap.get(offset);
+        return { record: r || null, offset, partitionId: p.id, partition: p };
+      }
+    }
+  }
+  return null;
+}
+
+function stateClass(r) {
+  if (!r) return 'state-archived';
+  if (r.state === STATE.AVAILABLE)    return 'state-available';
+  if (r.state === STATE.ACQUIRED)     return 'state-acquired';
+  if (r.state === STATE.ARCHIVED)     return 'state-archived';
+  if (r.ackType === ACK.ACCEPT)       return 'state-ack-accept';
+  if (r.ackType === ACK.RELEASE)      return 'state-ack-release';
+  if (r.ackType === ACK.REJECT)       return 'state-ack-reject';
+  return '';
+}
+
+function showTooltip(hit, mouseX, mouseY) {
+  const { record: r, offset, partitionId, partition } = hit;
+
+  const stateLabel = r
+    ? (r.state === STATE.ACKNOWLEDGED
+        ? `ACKNOWLEDGED (${r.ackType?.toUpperCase()})`
+        : r.state.toUpperCase())
+    : 'ACCEPTED (removed)';
+
+  const sc = stateClass(r);
+  const dc = r ? r.deliveryCount : '—';
+  const dcWarn = r && r.deliveryCount >= config.deliveryCountLimit - 1;
+  const consumer = r && r.acquiredBy !== null ? `C${r.acquiredBy}` : '—';
+  const lockInfo = r && r.state === STATE.ACQUIRED
+    ? `${Math.max(0, r.lockExpiresAt - sim.tick)} ticks`
+    : '—';
+
+  tooltip.innerHTML = `
+    <div class="tt-row"><span class="tt-key">partition</span><span class="tt-val">P${partitionId}</span></div>
+    <div class="tt-row"><span class="tt-key">offset</span><span class="tt-val">${offset}</span></div>
+    <div class="tt-row"><span class="tt-key">state</span><span class="tt-val ${sc}">${stateLabel}</span></div>
+    <div class="tt-row"><span class="tt-key">delivery count</span><span class="tt-val ${dcWarn ? 'dc-warn' : ''}">${dc}${dcWarn ? ' ⚠' : ''}</span></div>
+    <div class="tt-row"><span class="tt-key">acquired by</span><span class="tt-val">${consumer}</span></div>
+    <div class="tt-row"><span class="tt-key">lock expires</span><span class="tt-val">${lockInfo}</span></div>
+    <div class="tt-row"><span class="tt-key">SPSO</span><span class="tt-val">${partition.spso}</span></div>
+    <div class="tt-row"><span class="tt-key">SPEO</span><span class="tt-val">${partition.speo}</span></div>
+  `;
+  tooltip.style.display = 'block';
+
+  // Position tooltip — keep it inside the viewport
+  const tw = tooltip.offsetWidth  || 200;
+  const th = tooltip.offsetHeight || 160;
+  let tx = mouseX + 14;
+  let ty = mouseY + 14;
+  if (tx + tw > window.innerWidth  - 8) tx = mouseX - tw - 8;
+  if (ty + th > window.innerHeight - 8) ty = mouseY - th - 8;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top  = ty + 'px';
+}
+
+function hideTooltip() {
+  tooltip.style.display = 'none';
+}
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const px = (e.clientX - rect.left) * scaleX;
+  const py = (e.clientY - rect.top)  * scaleY;
+
+  const hit = recordAtPoint(px, py);
+  if (hit) {
+    showTooltip(hit, e.clientX, e.clientY);
+    canvas.style.cursor = 'crosshair';
+  } else {
+    hideTooltip();
+    canvas.style.cursor = 'default';
+  }
+});
+
+canvas.addEventListener('mouseleave', hideTooltip);
+
+buildPartitionRadios();
+handleResize();
+initSim();
+requestAnimationFrame(animationFrame);
+window.addEventListener('resize', handleResize);
+</script>
+</body>
+</html>
