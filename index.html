@@ -7,9 +7,21 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1c2230;
+    --border:    #2a3347;
+    --accent:    #4a9eff;
+    --accent-dim:#1e3a5f;
+    --text:      #c9d1d9;
+    --text-dim:  #6e7d91;
+    --text-mono: 'Courier New', monospace;
+  }
+
   body {
-    background: #0f1117;
-    color: #e0e0e0;
+    background: var(--bg);
+    color: var(--text);
     font-family: 'Segoe UI', system-ui, sans-serif;
     display: flex;
     flex-direction: column;
@@ -17,116 +29,351 @@
     overflow: hidden;
   }
 
-  /* ── Header ── */
+  /* ── Top header bar ── */
   #header {
-    background: #1a1d27;
-    border-bottom: 1px solid #2e3248;
-    padding: 6px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    height: 44px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex-shrink: 0;
-    flex-wrap: wrap;
   }
   #header h1 {
-    font-size: 13px;
-    font-weight: 600;
-    color: #a0aec0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
     white-space: nowrap;
+    letter-spacing: -0.01em;
   }
-  #header h1 span { color: #63b3ed; }
+  #header h1 .accent { color: var(--accent); }
+  #header h1 .kip    { font-size: 11px; font-weight: 400; color: var(--text-dim); margin-left: 4px; }
 
+  .sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+  .spacer { flex: 1; }
+
+  /* Playback buttons */
   .btn {
-    background: #2d3748;
-    border: 1px solid #4a5568;
-    color: #e2e8f0;
-    padding: 3px 11px;
-    border-radius: 4px;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 12px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 12px;
-    transition: background 0.12s;
+    font-weight: 500;
+    transition: background 0.12s, border-color 0.12s;
     white-space: nowrap;
   }
-  .btn:hover { background: #3d4f63; }
-  .btn.running { background: #2b6cb0; border-color: #63b3ed; }
-  .btn.paused  { background: #744210; border-color: #f6ad55; color: #fbd38d; }
-  .btn.danger  { border-color: #fc8181; color: #fc8181; }
-  .btn.danger:hover { background: #742a2a; }
+  .btn:hover { background: #243040; border-color: #3d5068; }
+  .btn.running { background: #1a3a5c; border-color: var(--accent); color: #7ec8ff; }
+  .btn.paused  { background: #3a2800; border-color: #f6ad55; color: #fbd38d; }
+  .btn.danger  { border-color: #e05252; color: #fc8181; }
+  .btn.danger:hover { background: #3a1515; }
 
-  .sep { width: 1px; height: 18px; background: #2e3248; flex-shrink: 0; }
-  .speed-label { font-size: 11px; color: #718096; }
-  #speedSlider { width: 70px; accent-color: #63b3ed; vertical-align: middle; }
+  .speed-wrap { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
+  .speed-wrap input[type=range] { width: 80px; accent-color: var(--accent); }
+  .speed-wrap #speedVal { color: var(--accent); font-weight: 600; min-width: 32px; font-family: var(--text-mono); }
 
-  /* ── Canvas ── */
-  #canvasWrap { flex: 1; min-height: 0; position: relative; }
-  canvas { display: block; width: 100%; height: 100%; }
-
-  /* ── Status / legend bar ── */
-  #statusBar {
-    background: #1a1d27;
-    border-top: 1px solid #2e3248;
-    border-bottom: 1px solid #2e3248;
-    padding: 3px 14px;
+  /* ── Main body: sidebar + canvas ── */
+  #body {
     display: flex;
-    gap: 14px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-section {
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-section:last-child { border-bottom: none; }
+
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  /* Control row */
+  .ctrl {
+    margin-bottom: 14px;
+  }
+  .ctrl:last-child { margin-bottom: 0; }
+
+  .ctrl-header {
+    display: flex;
     align-items: center;
-    flex-shrink: 0;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-bottom: 5px;
   }
-  .stat { font-size: 11px; display: flex; align-items: center; gap: 4px; }
-  .stat .dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
-  .stat .count { color: #fff; font-weight: 700; min-width: 22px; }
+  .ctrl-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: var(--text-mono);
+  }
+  .ctrl-val {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: var(--text-mono);
+    background: var(--accent-dim);
+    padding: 1px 6px;
+    border-radius: 3px;
+    min-width: 28px;
+    text-align: center;
+  }
 
-  /* ── Controls ── */
-  #controls {
-    background: #1a1d27;
-    padding: 6px 14px 8px;
+  /* Slider */
+  .ctrl input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .slider-ticks {
     display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    align-items: flex-end;
+    justify-content: space-between;
+    margin-top: 2px;
+  }
+  .slider-ticks span {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-family: var(--text-mono);
+  }
+
+  /* Select */
+  .ctrl select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: var(--text-mono);
+    cursor: pointer;
+    appearance: auto;
+  }
+  .ctrl select:focus { outline: 1px solid var(--accent); }
+
+  /* Toggle (checkbox styled) */
+  .ctrl-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .ctrl-toggle input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .ctrl-toggle span { font-size: 11px; color: var(--text); font-family: var(--text-mono); }
+
+  /* Info icon + popover */
+  .info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 9px;
+    font-weight: 700;
+    font-style: italic;
+    cursor: pointer;
     flex-shrink: 0;
+    transition: border-color 0.1s, color 0.1s;
+    font-family: Georgia, serif;
+    line-height: 1;
   }
-  .ctrl-group { display: flex; flex-direction: column; gap: 3px; }
-  .ctrl-group label {
-    font-size: 10px; color: #718096;
-    font-family: 'Courier New', monospace; white-space: nowrap;
+  .info-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .info-popover {
+    display: none;
+    margin-top: 6px;
+    background: #0d1525;
+    border: 1px solid var(--accent-dim);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.55;
   }
-  .ctrl-group .cv { font-size: 10px; color: #63b3ed; font-weight: 700; }
-  .ctrl-group input[type=range] { width: 110px; accent-color: #63b3ed; }
-  .ctrl-group select {
-    background: #2d3748; border: 1px solid #4a5568;
-    color: #e2e8f0; padding: 2px 5px; border-radius: 4px;
-    font-size: 11px; cursor: pointer;
+  .info-popover.open { display: block; }
+  .info-popover a { color: var(--accent); font-size: 10px; }
+
+  /* Status strip */
+  #statusBar {
+    padding: 10px 14px 6px;
   }
-  .radio-row { display: flex; gap: 6px; }
-  .radio-row label {
-    font-size: 11px; color: #e2e8f0;
-    display: flex; align-items: center; gap: 3px;
-    cursor: pointer; font-family: inherit;
+  .status-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 8px;
   }
-  input[type=checkbox] { accent-color: #63b3ed; cursor: pointer; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 8px;
+  }
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .stat .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .stat .count { color: var(--text); font-weight: 700; margin-left: auto; font-family: var(--text-mono); font-size: 12px; }
+
+  /* Keyboard hint */
+  .kbd-hint {
+    padding: 8px 14px;
+    font-size: 10px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    font-family: var(--text-mono);
+  }
+
+  /* About + How to use */
+  .about-text {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .about-text:last-child { margin-bottom: 0; }
+  .about-text strong { color: var(--text); }
+  .about-text em { color: #90b8e0; font-style: normal; }
+
+  .how-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .how-list li {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    padding-left: 12px;
+    position: relative;
+  }
+  .how-list li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .how-list li strong { color: var(--text); }
+  .how-list li code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 3px;
+    font-size: 10px;
+    font-family: var(--text-mono);
+    color: #90b8e0;
+  }
+  .how-list li kbd {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-size: 10px;
+    font-family: var(--text-mono);
+    color: var(--text);
+  }
+
+  /* Learn more links */
+  .learn-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .learn-list li {}
+  .learn-list a {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    transition: color 0.1s;
+  }
+  .learn-list a:hover { color: #7ec8ff; text-decoration: underline; }
+  .link-icon {
+    flex-shrink: 0;
+    font-size: 10px;
+    margin-top: 2px;
+    color: var(--accent);
+    opacity: 0.7;
+  }
+  .link-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 1px;
+    padding-left: 17px;
+  }
+
+  /* ── Canvas area ── */
+  #canvasWrap {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    background: var(--bg);
+  }
+  canvas { display: block; width: 100%; height: 100%; }
 
   /* record tooltip */
   #tooltip {
     position: fixed;
     pointer-events: none;
-    background: #1a1d2f;
-    border: 1px solid #4a5568;
-    border-radius: 6px;
-    padding: 8px 12px;
+    background: #0d1525;
+    border: 1px solid #3d5068;
+    border-radius: 8px;
+    padding: 10px 14px;
     font-size: 12px;
-    font-family: 'Courier New', monospace;
-    color: #e2e8f0;
+    font-family: var(--text-mono);
+    color: var(--text);
     line-height: 1.7;
     display: none;
-    z-index: 100;
-    min-width: 180px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 200;
+    min-width: 190px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
   }
+  #tooltip .tt-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 6px; padding-bottom: 5px;
+    border-bottom: 1px solid var(--border); }
   #tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; }
-  #tooltip .tt-key { color: #718096; }
-  #tooltip .tt-val { color: #e2e8f0; font-weight: 600; }
+  #tooltip .tt-key { color: var(--text-dim); }
+  #tooltip .tt-val { color: var(--text); font-weight: 600; }
   #tooltip .tt-val.state-available  { color: #63b3ed; }
   #tooltip .tt-val.state-acquired   { color: #FF9800; }
   #tooltip .tt-val.state-ack-accept { color: #4CAF50; }
@@ -135,93 +382,237 @@
   #tooltip .tt-val.state-archived   { color: #607D8B; }
   #tooltip .tt-val.dc-warn          { color: #fc8181; }
 
-  /* pause overlay hint */
+  /* pause overlay */
   #pauseHint {
     position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    background: rgba(0,0,0,0.72);
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.78);
     border: 1px solid #f6ad55;
     color: #fbd38d;
-    padding: 6px 16px;
-    border-radius: 6px;
+    padding: 8px 20px;
+    border-radius: 8px;
     font-size: 13px;
     font-weight: 600;
     pointer-events: none;
     display: none;
     letter-spacing: 0.04em;
+    backdrop-filter: blur(2px);
   }
 </style>
 </head>
 <body>
 
+<!-- ── Top header ── -->
 <div id="header">
-  <h1>KIP-932 <span>Share Group</span> Visualizer</h1>
+  <h1>Share Group Visualizer <span class="kip">KIP-932 · Apache Kafka 4.3</span></h1>
+  <div class="spacer"></div>
   <div class="sep"></div>
   <button class="btn running" id="btnPlay">⏸ Pause</button>
   <button class="btn" id="btnStep" title="Step one tick (while paused)">⏭ Step</button>
   <button class="btn" id="btnReset">↺ Reset</button>
   <button class="btn danger" id="btnCrash">⚡ Crash Consumer</button>
   <div class="sep"></div>
-  <span class="speed-label">Speed</span>
-  <input type="range" id="speedSlider" min="0.25" max="2" value="1" step="0.25">
-  <span class="speed-label" id="speedVal">1×</span>
+  <div class="speed-wrap">
+    <span>Speed</span>
+    <input type="range" id="speedSlider" min="0.25" max="2" value="1" step="0.25">
+    <span id="speedVal">1×</span>
+  </div>
 </div>
 
-<div id="canvasWrap">
-  <canvas id="viz"></canvas>
-  <div id="pauseHint">⏸ PAUSED — inspect partition state</div>
-</div>
+<!-- ── Body: sidebar + canvas ── -->
+<div id="body">
+
+  <!-- ── Sidebar ── -->
+  <div id="sidebar">
+
+    <!-- Topology -->
+    <div class="sidebar-section">
+      <div class="section-title">Topology</div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">partitions</span>
+          <span class="ctrl-val" id="partVal">1</span>
+        </div>
+        <input type="range" id="partSlider" min="0" max="3" value="0" step="1">
+        <div class="slider-ticks"><span>1</span><span>3</span><span>6</span><span>9</span></div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">consumers</span>
+          <span class="ctrl-val" id="consumerVal">1</span>
+        </div>
+        <input type="range" id="consumerSlider" min="1" max="8" value="1" step="1">
+        <div class="slider-ticks"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div>
+      </div>
+    </div>
+
+    <!-- Consumer config -->
+    <div class="sidebar-section">
+      <div class="section-title">Consumer Config</div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">share.acknowledgement.mode</span>
+          <button class="info-btn" data-info="ackModeInfo" title="About this setting">i</button>
+        </div>
+        <select id="ackMode">
+          <option value="implicit">implicit</option>
+          <option value="explicit">explicit</option>
+        </select>
+        <div class="info-popover" id="ackModeInfo">
+          <strong style="color:#c9d1d9">implicit</strong> — records are automatically acknowledged when <code>poll()</code> is called. No explicit ack needed.<br><br>
+          <strong style="color:#c9d1d9">explicit</strong> — the application must call <code>acknowledge(record, AcknowledgeType)</code> for each record. Enables ACCEPT, RELEASE, REJECT, and RENEW outcomes.
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">max.poll.records</span>
+          <span class="ctrl-val" id="pollVal">3</span>
+          <button class="info-btn" data-info="pollInfo" title="About this setting">i</button>
+        </div>
+        <input type="range" id="pollSlider" min="1" max="10" value="3" step="1">
+        <div class="slider-ticks"><span>1</span><span>5</span><span>10</span></div>
+        <div class="info-popover" id="pollInfo">
+          The maximum number of records returned in a single <code>poll()</code> call. Higher values mean larger batches per consumer per tick, increasing throughput but reducing fairness across consumers.
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">share.acquire.mode</span>
+          <button class="info-btn" data-info="acquireInfo" title="About this setting">i</button>
+        </div>
+        <select id="acquireMode">
+          <option value="batch_optimized">batch_optimized</option>
+          <option value="record_limit">record_limit</option>
+        </select>
+        <div class="info-popover" id="acquireInfo">
+          <strong style="color:#c9d1d9">batch_optimized</strong> — the broker may return fewer than <code>max.poll.records</code> to optimise batching efficiency (KIP-1206).<br><br>
+          <strong style="color:#c9d1d9">record_limit</strong> — strictly enforces <code>max.poll.records</code>; the broker will not return more than this count.
+        </div>
+      </div>
+    </div>
+
+    <!-- Delivery config -->
+    <div class="sidebar-section">
+      <div class="section-title">Delivery Config</div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">share.delivery.count.limit</span>
+          <span class="ctrl-val" id="deliveryVal">5</span>
+          <button class="info-btn" data-info="deliveryInfo" title="About this setting">i</button>
+        </div>
+        <input type="range" id="deliverySlider" min="2" max="10" value="5" step="1">
+        <div class="slider-ticks"><span>2</span><span>5</span><span>10</span></div>
+        <div class="info-popover" id="deliveryInfo">
+          The maximum number of times a record will be delivered before it is moved to ARCHIVED state and no further delivery attempts are made. Broker bounds: min 2, max 10 (KIP-1240). Records approaching this limit are highlighted in red.
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">share.renew.acknowledge.enable</span>
+          <button class="info-btn" data-info="renewInfo" title="About this setting">i</button>
+        </div>
+        <label class="ctrl-toggle">
+          <input type="checkbox" id="renewEnable" checked>
+          <span id="renewLabel">enabled</span>
+        </label>
+        <div class="info-popover" id="renewInfo">
+          When enabled, consumers can send a <strong style="color:#FF9800">RENEW</strong> acknowledgement to extend the acquisition lock on a record they are still processing (KIP-1222). When disabled, RENEW is rejected — consumers must settle within the original lock window.
+        </div>
+      </div>
+    </div>
+
+    <!-- Status counts -->
+    <div class="sidebar-section" id="statusBar">
+      <div class="status-title">Record Counts</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="dot" style="background:#2196F3"></div>Available<span class="count" id="cntAvail">0</span></div>
+        <div class="stat"><div class="dot" style="background:#FF9800"></div>Acquired<span class="count" id="cntAcq">0</span></div>
+        <div class="stat"><div class="dot" style="background:#4CAF50"></div>Accepted<span class="count" id="cntAcc">0</span></div>
+        <div class="stat"><div class="dot" style="background:#9C27B0"></div>Released<span class="count" id="cntRel">0</span></div>
+        <div class="stat"><div class="dot" style="background:#F44336"></div>Rejected<span class="count" id="cntRej">0</span></div>
+        <div class="stat"><div class="dot" style="background:#607D8B"></div>Archived<span class="count" id="cntArch">0</span></div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div class="sidebar-section">
+      <div class="section-title">About</div>
+      <p class="about-text">
+        Apache Kafka 4.0 introduced <strong>Share Groups</strong> (KIP-932), enabling true queue semantics alongside Kafka's existing stream processing model. Unlike consumer groups, multiple consumers in a share group can compete for records from the <em>same</em> partition — making it straightforward to scale processing without repartitioning.
+      </p>
+      <p class="about-text">
+        This visualizer focuses on the <strong>Share Partition state machine</strong>: how individual records move through AVAILABLE → ACQUIRED → ACKNOWLEDGED → ARCHIVED, how the Share Partition Start Offset (SPSO) and End Offset (SPEO) advance, and how delivery count limits, acknowledgement modes, and consumer scaling interact.
+      </p>
+    </div>
+
+    <!-- How to use -->
+    <div class="sidebar-section">
+      <div class="section-title">How to Use</div>
+      <ul class="how-list">
+        <li>Use the <strong>Topology</strong> controls to set partition count and the number of competing consumers.</li>
+        <li>Switch <strong>share.acknowledgement.mode</strong> to <code>explicit</code> to see RELEASE, REJECT, and RENEW acknowledgement types in action.</li>
+        <li>Lower <strong>share.delivery.count.limit</strong> to 2 or 3 to watch records hit the ARCHIVED state quickly after repeated redelivery.</li>
+        <li>Hit <strong>⏸ Pause</strong> (or press <kbd>Space</kbd>), then hover over any record cell to inspect its partition, offset, state, delivery count, and lock status.</li>
+        <li>Click <strong>⚡ Crash Consumer</strong> to simulate a session timeout — acquired records return to AVAILABLE without acknowledgement.</li>
+        <li>Click the <strong><em>i</em></strong> icon next to any setting for a description from the Kafka documentation.</li>
+      </ul>
+    </div>
+
+    <!-- Learn more -->
+    <div class="sidebar-section">
+      <div class="section-title">Learn More</div>
+      <ul class="learn-list">
+        <li>
+          <a href="https://www.youtube.com/watch?v=Wb0xyqgaIqw" target="_blank" rel="noopener">
+            <span class="link-icon">▶</span>
+            <span>Queues for Kafka Explained (KIP-932)</span>
+          </a>
+          <div class="link-meta">Sandon Jacobs · Confluent Developer</div>
+        </li>
+        <li>
+          <a href="https://www.infoworld.com/article/4143957/how-apache-kafka-flexed-to-support-queues.html" target="_blank" rel="noopener">
+            <span class="link-icon">✦</span>
+            <span>How Apache Kafka Flexed to Support Queues</span>
+          </a>
+          <div class="link-meta">Sandon Jacobs · InfoWorld</div>
+        </li>
+        <li>
+          <a href="https://kafka.apache.org/43/documentation/" target="_blank" rel="noopener">
+            <span class="link-icon">⬡</span>
+            <span>Apache Kafka 4.3 Documentation</span>
+          </a>
+          <div class="link-meta">Share Groups · kafka.apache.org</div>
+        </li>
+        <li>
+          <a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-932%3A+Queues+for+Kafka" target="_blank" rel="noopener">
+            <span class="link-icon">⬡</span>
+            <span>KIP-932: Queues for Kafka</span>
+          </a>
+          <div class="link-meta">Apache Kafka Wiki</div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="kbd-hint">Space — pause / resume</div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ── Canvas ── -->
+  <div id="canvasWrap">
+    <canvas id="viz"></canvas>
+    <div id="pauseHint">⏸ PAUSED — hover over records to inspect</div>
+  </div>
+
+</div><!-- /body -->
+
 <div id="tooltip"></div>
-
-<div id="statusBar">
-  <div class="stat"><div class="dot" style="background:#2196F3"></div>Available<span class="count" id="cntAvail">0</span></div>
-  <div class="stat"><div class="dot" style="background:#FF9800"></div>Acquired<span class="count" id="cntAcq">0</span></div>
-  <div class="stat"><div class="dot" style="background:#4CAF50"></div>Accepted (total)<span class="count" id="cntAcc">0</span></div>
-  <div class="stat"><div class="dot" style="background:#9C27B0"></div>Released (total)<span class="count" id="cntRel">0</span></div>
-  <div class="stat"><div class="dot" style="background:#F44336"></div>Rejected (total)<span class="count" id="cntRej">0</span></div>
-  <div class="stat"><div class="dot" style="background:#607D8B"></div>Archived (total)<span class="count" id="cntArch">0</span></div>
-  <div class="sep" style="margin-left:4px"></div>
-  <div class="stat" style="font-family:monospace;font-size:10px;color:#718096">Space = pause/resume</div>
-</div>
-
-<div id="controls">
-  <div class="ctrl-group">
-    <label>partitions</label>
-    <div class="radio-row" id="partRadios"></div>
-  </div>
-  <div class="ctrl-group">
-    <label>consumers <span class="cv" id="consumerVal">1</span></label>
-    <input type="range" id="consumerSlider" min="1" max="8" value="1" step="1">
-  </div>
-  <div class="ctrl-group">
-    <label>share.acknowledgement.mode</label>
-    <select id="ackMode">
-      <option value="implicit">implicit</option>
-      <option value="explicit">explicit</option>
-    </select>
-  </div>
-  <div class="ctrl-group">
-    <label>share.acquire.mode</label>
-    <select id="acquireMode">
-      <option value="batch_optimized">batch_optimized</option>
-      <option value="record_limit">record_limit</option>
-    </select>
-  </div>
-  <div class="ctrl-group">
-    <label>share.renew.acknowledge.enable</label>
-    <label style="font-family:inherit;font-size:11px;color:#e2e8f0;display:flex;align-items:center;gap:4px;cursor:pointer">
-      <input type="checkbox" id="renewEnable" checked> enabled
-    </label>
-  </div>
-  <div class="ctrl-group">
-    <label>max.poll.records <span class="cv" id="pollVal">3</span></label>
-    <input type="range" id="pollSlider" min="1" max="10" value="3" step="1">
-  </div>
-  <div class="ctrl-group">
-    <label>share.delivery.count.limit <span class="cv" id="deliveryVal">5</span></label>
-    <input type="range" id="deliverySlider" min="2" max="10" value="5" step="1">
-  </div>
-</div>
 
 <script>
 'use strict';
@@ -1023,6 +1414,15 @@ document.getElementById('speedSlider').addEventListener('input', e => {
   document.getElementById('speedVal').textContent = (v === Math.floor(v) ? v : v.toFixed(2)).toString() + '×';
 });
 
+// Partition slider: index 0-3 → values 1,3,6,9
+const PART_VALUES = [1, 3, 6, 9];
+document.getElementById('partSlider').addEventListener('input', e => {
+  const n = PART_VALUES[+e.target.value];
+  document.getElementById('partVal').textContent = n;
+  config.partitionCount = n;
+  initSim(); computeLayout();
+});
+
 document.getElementById('consumerSlider').addEventListener('input', e => {
   const n = +e.target.value;
   document.getElementById('consumerVal').textContent = n;
@@ -1042,24 +1442,30 @@ document.getElementById('consumerSlider').addEventListener('input', e => {
   computeLayout();
 });
 
-function buildPartitionRadios() {
-  const wrap = document.getElementById('partRadios');
-  wrap.innerHTML = '';
-  for (let i = 1; i <= 3; i++) {
-    const lbl = document.createElement('label');
-    const inp = document.createElement('input');
-    inp.type = 'radio'; inp.name = 'partCount'; inp.value = i;
-    if (i === config.partitionCount) inp.checked = true;
-    inp.addEventListener('change', () => { config.partitionCount = i; initSim(); computeLayout(); });
-    lbl.appendChild(inp);
-    lbl.appendChild(document.createTextNode(' ' + i));
-    wrap.appendChild(lbl);
-  }
-}
+// (partition radios replaced by slider — no buildPartitionRadios needed)
 
 document.getElementById('ackMode').addEventListener('change', e => { config.acknowledgementMode = e.target.value; });
 document.getElementById('acquireMode').addEventListener('change', e => { config.acquireMode = e.target.value; });
-document.getElementById('renewEnable').addEventListener('change', e => { config.renewAcknowledgeEnable = e.target.checked; });
+document.getElementById('renewEnable').addEventListener('change', e => {
+  config.renewAcknowledgeEnable = e.target.checked;
+  document.getElementById('renewLabel').textContent = e.target.checked ? 'enabled' : 'disabled';
+});
+
+// Info popover toggles
+document.querySelectorAll('.info-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const id = btn.dataset.info;
+    const popover = document.getElementById(id);
+    const wasOpen = popover.classList.contains('open');
+    // Close all popovers first
+    document.querySelectorAll('.info-popover.open').forEach(p => p.classList.remove('open'));
+    if (!wasOpen) popover.classList.add('open');
+  });
+});
+document.addEventListener('click', () => {
+  document.querySelectorAll('.info-popover.open').forEach(p => p.classList.remove('open'));
+});
 document.getElementById('pollSlider').addEventListener('input', e => {
   config.maxPollRecords = +e.target.value;
   document.getElementById('pollVal').textContent = e.target.value;
@@ -1155,12 +1561,11 @@ function showTooltip(hit, mouseX, mouseY) {
     : '—';
 
   tooltip.innerHTML = `
-    <div class="tt-row"><span class="tt-key">partition</span><span class="tt-val">P${partitionId}</span></div>
-    <div class="tt-row"><span class="tt-key">offset</span><span class="tt-val">${offset}</span></div>
+    <div class="tt-head">P${partitionId} · offset ${offset}</div>
     <div class="tt-row"><span class="tt-key">state</span><span class="tt-val ${sc}">${stateLabel}</span></div>
     <div class="tt-row"><span class="tt-key">delivery count</span><span class="tt-val ${dcWarn ? 'dc-warn' : ''}">${dc}${dcWarn ? ' ⚠' : ''}</span></div>
     <div class="tt-row"><span class="tt-key">acquired by</span><span class="tt-val">${consumer}</span></div>
-    <div class="tt-row"><span class="tt-key">lock expires</span><span class="tt-val">${lockInfo}</span></div>
+    <div class="tt-row"><span class="tt-key">lock expires in</span><span class="tt-val">${lockInfo}</span></div>
     <div class="tt-row"><span class="tt-key">SPSO</span><span class="tt-val">${partition.spso}</span></div>
     <div class="tt-row"><span class="tt-key">SPEO</span><span class="tt-val">${partition.speo}</span></div>
   `;
@@ -1200,7 +1605,6 @@ canvas.addEventListener('mousemove', e => {
 
 canvas.addEventListener('mouseleave', hideTooltip);
 
-buildPartitionRadios();
 handleResize();
 initSim();
 requestAnimationFrame(animationFrame);
