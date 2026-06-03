@@ -342,14 +342,55 @@
     padding-left: 17px;
   }
 
+  /* ── Main panel (about banner + canvas) ── */
+  #mainPanel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* ── About banner ── */
+  #aboutBanner {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+    align-items: start;
+  }
+  #aboutBanner .about-text {
+    margin-bottom: 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
   /* ── Canvas area ── */
   #canvasWrap {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     position: relative;
     background: var(--bg);
   }
   canvas { display: block; width: 100%; height: 100%; }
+
+  /* ── Right sidebar ── */
+  #rightSidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #rightSidebar::-webkit-scrollbar { width: 4px; }
+  #rightSidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
   /* record tooltip */
   #tooltip {
@@ -450,10 +491,10 @@
       <div class="ctrl">
         <div class="ctrl-header">
           <span class="ctrl-label">ingress rate (events/sec)</span>
-          <span class="ctrl-val" id="produceVal">10</span>
+          <span class="ctrl-val" id="produceVal">100</span>
         </div>
         <input type="range" id="produceSlider" min="0" max="4" value="1" step="1">
-        <div class="slider-ticks"><span>5</span><span>10</span><span>25</span><span>50</span><span>100</span></div>
+        <div class="slider-ticks"><span>50</span><span>100</span><span>150</span><span>300</span><span>500</span></div>
       </div>
     </div>
 
@@ -548,11 +589,20 @@
         <div class="stat"><div class="dot" style="background:#F44336"></div>Rejected<span class="count" id="cntRej">0</span></div>
         <div class="stat"><div class="dot" style="background:#607D8B"></div>Archived<span class="count" id="cntArch">0</span></div>
       </div>
+      <div style="margin-top:8px;padding:6px 8px;background:#1a1e0e;border:1px solid #3a3010;border-radius:4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:10px;color:#c9a84c;font-weight:600;letter-spacing:.03em">Share Group Lag <span style="font-weight:400;color:#6e7d91">(KIP-1226)</span></span>
+        <span id="cntLag" style="font-size:14px;font-weight:700;color:#e2a83a;font-family:Courier New,monospace">0</span>
+      </div>
     </div>
 
-    <!-- About -->
-    <div class="sidebar-section">
-      <div class="section-title">About</div>
+    <div class="kbd-hint">Space — pause / resume</div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ── Main panel: about banner + canvas ── -->
+  <div id="mainPanel">
+
+    <div id="aboutBanner">
       <p class="about-text">
         Apache Kafka 4.0 introduced <strong>Share Groups</strong> (KIP-932), enabling true queue semantics alongside Kafka's existing stream processing model. Unlike consumer groups, multiple consumers in a share group can compete for records from the <em>same</em> partition — making it straightforward to scale processing without repartitioning.
       </p>
@@ -561,7 +611,16 @@
       </p>
     </div>
 
-    <!-- How to use -->
+    <div id="canvasWrap">
+      <canvas id="viz"></canvas>
+      <div id="pauseHint">⏸ PAUSED — hover over records to inspect</div>
+    </div>
+
+  </div><!-- /mainPanel -->
+
+  <!-- ── Right sidebar: how to use + learn more ── -->
+  <div id="rightSidebar">
+
     <div class="sidebar-section">
       <div class="section-title">How to Use</div>
       <ul class="how-list">
@@ -574,7 +633,6 @@
       </ul>
     </div>
 
-    <!-- Learn more -->
     <div class="sidebar-section">
       <div class="section-title">Learn More</div>
       <ul class="learn-list">
@@ -609,15 +667,7 @@
       </ul>
     </div>
 
-    <div class="kbd-hint">Space — pause / resume</div>
-
-  </div><!-- /sidebar -->
-
-  <!-- ── Canvas ── -->
-  <div id="canvasWrap">
-    <canvas id="viz"></canvas>
-    <div id="pauseHint">⏸ PAUSED — hover over records to inspect</div>
-  </div>
+  </div><!-- /rightSidebar -->
 
 </div><!-- /body -->
 
@@ -658,11 +708,13 @@ const STATE_LABEL = {
 const FLASH_TICKS  = 8;
 const LOCK_TICKS   = 28;
 const MAX_RECORDS       = 40;
-const PRODUCE_RATES     = [5, 10, 25, 50, 100]; // events/sec options
+const PRODUCE_RATES     = [50, 100, 150, 300, 500]; // events/sec options
 const BASE_TICK_RATE    = 1000 / 220;            // ticks/sec at 1×
 const P_CRASH      = 0.004;
 const MIN_CELL_W = 34;   // minimum cell width before we start windowing
 const MAX_CELL_W = 70;   // maximum cell width
+const HIST_COUNT  = 5;   // pre-SPSO processed cells shown in history strip
+const HIST_CELL_W = 26;  // fixed px width of each history cell
 
 // ═══════════════════════════════════════════════════════════
 // §B  Data constructors
@@ -721,7 +773,7 @@ const config = {
   maxPollRecords: 3,
   deliveryCountLimit: 5,
   speedMultiplier: 1,
-  produceRate: 10,       // events per second (total across all partitions)
+  produceRate: 100,      // events per second (total across all partitions)
 };
 
 let sim = null;
@@ -983,8 +1035,10 @@ function computeLayout() {
   // Cap lane height so a single partition doesn't sprawl; min for 3 partitions
   const LANE_H = Math.min(200, PARTITION_AREA_H / np);
 
-  // Left margin for partition label + SPSO info
-  const LEFT_MARGIN = 72;
+  // Left margin: label strip + history zone (5 pre-SPSO processed cells) + gap
+  const LABEL_W     = 36;
+  const HIST_AREA_W = HIST_COUNT * HIST_CELL_W;   // 5 × 26 = 130
+  const LEFT_MARGIN = LABEL_W + HIST_AREA_W + 6;  // 172
   // Right margin for SPEO label
   const RIGHT_MARGIN = 64;
   const USABLE_W = W - LEFT_MARGIN - RIGHT_MARGIN;
@@ -1000,7 +1054,7 @@ function computeLayout() {
   const cboxTotalW = nc * CBOX_W + (nc - 1) * 6;
   const CBOX_X0 = (W - cboxTotalW) / 2;
 
-  L = { W, H, np, nc, LANE_H, LEFT_MARGIN, RIGHT_MARGIN, USABLE_W,
+  L = { W, H, np, nc, LANE_H, LABEL_W, HIST_AREA_W, LEFT_MARGIN, RIGHT_MARGIN, USABLE_W,
         CELL_H, PARTITION_AREA_H,
         CONSUMER_ROW_H, CBOX_W, CBOX_H, CBOX_Y, CBOX_X0 };
 }
@@ -1031,6 +1085,33 @@ function viewportFor(p) {
 // ═══════════════════════════════════════════════════════════
 // §F  Rendering
 // ═══════════════════════════════════════════════════════════
+
+function drawProcessedCell(x, y, w, h, offset) {
+  // Pre-SPSO history cell: record was fully processed (accepted/archived) and SPSO has advanced past it
+  ctx.fillStyle = '#0b1118';
+  ctx.beginPath(); ctx.roundRect(x + 1, y, w - 2, h, 3); ctx.fill();
+  ctx.strokeStyle = '#161f2e'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x + 1, y, w - 2, h, 3); ctx.stroke();
+
+  // Checkmark — dimmer than in-viewport gaps
+  ctx.fillStyle = '#1a3a28';
+  ctx.font = `bold ${Math.min(11, h * 0.28)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('✓', x + w / 2, y + h / 2 + 2);
+
+  // Offset pill — very dim
+  const offStr = String(offset);
+  ctx.font = 'bold 9px Courier New';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const offW = ctx.measureText(offStr).width + 6;
+  const offH = 12;
+  const offX = x + w / 2 - offW / 2;
+  const offY = y - offH - 2;
+  ctx.fillStyle = '#0e1620';
+  ctx.beginPath(); ctx.roundRect(offX, offY, offW, offH, 3); ctx.fill();
+  ctx.fillStyle = '#243550';
+  ctx.fillText(offStr, x + w / 2, offY + offH / 2);
+}
 
 function drawAcceptedGap(x, y, w, h) {
   // A slot in the viewport range that has been accepted/archived — show as a faint checkmark cell
@@ -1142,7 +1223,33 @@ function drawPartitionLane(p, laneIdx) {
   const cellTop = laneY + 24;  // room for offset pill labels above
   const ch = L.CELL_H;
 
-  // Lane background
+  // ── Partition label (in LABEL_W strip) ──
+  ctx.fillStyle = '#4a6080';
+  ctx.font = 'bold 12px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`P${p.id}`, L.LABEL_W / 2, laneY + L.LANE_H / 2);
+
+  // ── History zone background (between label and SPSO boundary) ──
+  const histX0 = L.LABEL_W + 2;
+  const histW  = L.HIST_AREA_W;
+  ctx.fillStyle = '#0d1118';
+  ctx.beginPath();
+  ctx.roundRect(histX0, laneY + 4, histW, L.LANE_H - 8, 4);
+  ctx.fill();
+  ctx.strokeStyle = '#1a2232'; ctx.lineWidth = 1; ctx.stroke();
+
+  // ── History cells: up to HIST_COUNT pre-SPSO records, right-aligned to SPSO boundary ──
+  if (p.spso > 0) {
+    for (let i = 0; i < HIST_COUNT; i++) {
+      const offset = p.spso - HIST_COUNT + i;
+      if (offset < 0) continue;
+      const hx = histX0 + i * HIST_CELL_W;
+      drawProcessedCell(hx, cellTop, HIST_CELL_W, ch, offset);
+    }
+  }
+
+  // ── Live zone background ──
   ctx.fillStyle = '#141820';
   ctx.beginPath();
   ctx.roundRect(L.LEFT_MARGIN - 4, laneY + 4, L.USABLE_W + 8, L.LANE_H - 8, 5);
@@ -1150,13 +1257,6 @@ function drawPartitionLane(p, laneIdx) {
   ctx.strokeStyle = '#222840';
   ctx.lineWidth = 1;
   ctx.stroke();
-
-  // Partition label
-  ctx.fillStyle = '#4a6080';
-  ctx.font = 'bold 12px Courier New';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(`P${p.id}`, L.LEFT_MARGIN - 10, laneY + L.LANE_H / 2);
 
   if (end < 0) {
     // Empty partition — placeholder
@@ -1195,42 +1295,33 @@ function drawPartitionLane(p, laneIdx) {
     }
   }
 
-  // ── SPSO marker ──
-  if (vp.clipped) {
-    // SPSO is before the viewport window — pin indicator at left edge
-    const spsoX = L.LEFT_MARGIN;
+  // ── SPSO boundary line — always pinned at LEFT_MARGIN (left edge of live zone) ──
+  const spsoX = L.LEFT_MARGIN - 2;
+  ctx.beginPath();
+  ctx.moveTo(spsoX, laneY + 4);
+  ctx.lineTo(spsoX, laneY + L.LANE_H - 4);
+  ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
+  // SPSO label above history zone (right-aligned to boundary)
+  ctx.fillStyle = '#4CAF50';
+  ctx.font = 'bold 8px Courier New';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.fillText('SPSO', spsoX - 1, laneY + 5);
+  ctx.font = '8px Courier New';
+  ctx.fillText(`=${p.spso}`, spsoX - 1, laneY + 14);
+  // Arrow pointing right into live zone
+  ctx.fillStyle = '#4CAF50';
+  ctx.beginPath();
+  ctx.moveTo(spsoX, laneY + L.LANE_H / 2 - 4);
+  ctx.lineTo(spsoX + 7, laneY + L.LANE_H / 2);
+  ctx.lineTo(spsoX, laneY + L.LANE_H / 2 + 4);
+  ctx.closePath(); ctx.fill();
+  // When viewport is windowed (start > spso), note hidden live records
+  if (vp.clipped && start > p.spso) {
     ctx.fillStyle = '#2a5c3a';
-    ctx.beginPath(); ctx.roundRect(spsoX, laneY + 6, 56, L.LANE_H - 12, 3); ctx.fill();
-    ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = '#4CAF50';
-    ctx.font = 'bold 8px Courier New';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('SPSO', spsoX + 28, laneY + 9);
-    ctx.font = '9px Courier New';
-    ctx.fillText(`=${p.spso}`, spsoX + 28, laneY + 20);
     ctx.font = '8px Courier New';
-    ctx.fillStyle = '#2a7a4a';
-    ctx.fillText(`←${start - p.spso} more`, spsoX + 28, laneY + 32);
-  } else {
-    const spsoCol = p.spso - start;
-    const spsoX   = L.LEFT_MARGIN + spsoCol * cw;
-    ctx.beginPath();
-    ctx.moveTo(spsoX, laneY + 6);
-    ctx.lineTo(spsoX, laneY + L.LANE_H - 10);
-    ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 2;
-    ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#4CAF50';
-    ctx.font = 'bold 9px Courier New';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText('SPSO', spsoX + 2, laneY + 14);
-    ctx.font = '9px Courier New';
-    ctx.fillText(`=${p.spso}`, spsoX + 2, laneY + 23);
-    ctx.fillStyle = '#4CAF50';
-    ctx.beginPath();
-    ctx.moveTo(spsoX, laneY + L.LANE_H / 2 - 4);
-    ctx.lineTo(spsoX + 7, laneY + L.LANE_H / 2);
-    ctx.lineTo(spsoX, laneY + L.LANE_H / 2 + 4);
-    ctx.closePath(); ctx.fill();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(`+${start - p.spso} live`, L.LEFT_MARGIN + 2, laneY + 5);
   }
 
   // ── SPEO marker ──
@@ -1270,12 +1361,33 @@ function drawPartitionLane(p, laneIdx) {
   const statsStr = `acc:${p.totalAccepted}  rel:${p.totalReleased}  rej:${p.totalRejected}  arch:${p.totalArchived}`;
   ctx.fillText(statsStr, L.LEFT_MARGIN + L.USABLE_W, laneY + L.LANE_H - 4);
 
-  // ── Live record count in lane ──
+  // ── Live count (bottom left) ──
   ctx.fillStyle = '#2d4060';
   ctx.font = '9px Courier New';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
   ctx.fillText(`live: ${p.recordMap.size}`, L.LEFT_MARGIN, laneY + L.LANE_H - 4);
+
+  // ── Lag badge (KIP-1226) — top-right corner of live zone ──
+  const lag = p.speo >= 0 ? p.speo - p.spso + 1 : 0;
+  const badgeW = 58, badgeH = 34;
+  const badgeX = L.LEFT_MARGIN + L.USABLE_W - badgeW - 4;
+  const badgeY = laneY + 6;
+  const hasLag = lag > 0;
+  ctx.fillStyle = hasLag ? '#2a1e08' : '#131820';
+  ctx.beginPath(); ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4); ctx.fill();
+  ctx.strokeStyle = hasLag ? '#7a5010' : '#1e2a3a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4); ctx.stroke();
+  // "LAG" label
+  ctx.fillStyle = hasLag ? '#a07030' : '#2d4060';
+  ctx.font = 'bold 8px Courier New';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('LAG', badgeX + badgeW / 2, badgeY + 4);
+  // Lag value
+  ctx.fillStyle = hasLag ? '#e2a83a' : '#3a5070';
+  ctx.font = `bold ${Math.min(16, badgeH * 0.52)}px Courier New`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(String(lag), badgeX + badgeW / 2, badgeY + badgeH - 3);
 }
 
 function consumerBoxRect(i) {
@@ -1452,17 +1564,20 @@ function animationFrame(ts) {
 // §H  Status bar
 // ═══════════════════════════════════════════════════════════
 function updateStatusBar() {
-  let avail = 0, acq = 0;
+  let avail = 0, acq = 0, totalLag = 0;
   for (const r of allRecords()) {
     if (r.state === STATE.AVAILABLE) avail++;
     else if (r.state === STATE.ACQUIRED) acq++;
   }
+  for (const p of sim.partitions)
+    totalLag += p.speo >= 0 ? p.speo - p.spso + 1 : 0;
   document.getElementById('cntAvail').textContent = avail;
   document.getElementById('cntAcq').textContent   = acq;
   document.getElementById('cntAcc').textContent   = sim.counters.accepted;
   document.getElementById('cntRel').textContent   = sim.counters.released;
   document.getElementById('cntRej').textContent   = sim.counters.rejected;
   document.getElementById('cntArch').textContent  = sim.counters.archived;
+  document.getElementById('cntLag').textContent   = totalLag;
 }
 
 // ═══════════════════════════════════════════════════════════
