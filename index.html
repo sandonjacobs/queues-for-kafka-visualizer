@@ -443,8 +443,17 @@
           <span class="ctrl-label">consumers</span>
           <span class="ctrl-val" id="consumerVal">1</span>
         </div>
-        <input type="range" id="consumerSlider" min="1" max="8" value="1" step="1">
-        <div class="slider-ticks"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div>
+        <input type="range" id="consumerSlider" min="0" max="7" value="0" step="1">
+        <div class="slider-ticks"><span>1</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>21</span><span>25</span></div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">ingress rate (events/sec)</span>
+          <span class="ctrl-val" id="produceVal">10</span>
+        </div>
+        <input type="range" id="produceSlider" min="0" max="4" value="1" step="1">
+        <div class="slider-ticks"><span>5</span><span>10</span><span>25</span><span>50</span><span>100</span></div>
       </div>
     </div>
 
@@ -648,8 +657,9 @@ const STATE_LABEL = {
 };
 const FLASH_TICKS  = 8;
 const LOCK_TICKS   = 28;
-const MAX_RECORDS  = 40;
-const P_PRODUCE    = 0.35;
+const MAX_RECORDS       = 40;
+const PRODUCE_RATES     = [5, 10, 25, 50, 100]; // events/sec options
+const BASE_TICK_RATE    = 1000 / 220;            // ticks/sec at 1×
 const P_CRASH      = 0.004;
 const MIN_CELL_W = 34;   // minimum cell width before we start windowing
 const MAX_CELL_W = 70;   // maximum cell width
@@ -711,6 +721,7 @@ const config = {
   maxPollRecords: 3,
   deliveryCountLimit: 5,
   speedMultiplier: 1,
+  produceRate: 10,       // events per second (total across all partitions)
 };
 
 let sim = null;
@@ -723,6 +734,8 @@ function initSim() {
     partitions: Array.from({length: config.partitionCount}, (_, i) => makePartition(i)),
     consumers:  Array.from({length: config.consumerCount},  (_, i) => makeConsumer(i)),
     counters: { accepted: 0, released: 0, rejected: 0, archived: 0 },
+    produceCredit: 0,   // global fractional credit accumulator
+    produceNext: 0,     // round-robin partition index
   };
 }
 
@@ -744,15 +757,27 @@ function liveCount() {
 // ═══════════════════════════════════════════════════════════
 
 function produceRecords() {
-  for (const p of sim.partitions) {
-    if (liveCount() >= MAX_RECORDS) break;
-    if (Math.random() < P_PRODUCE) {
-      const offset = p.nextOffset++;
-      p.speo = offset;
-      const r = makeRecord(p.id, offset);
-      p.recordMap.set(offset, r);
-      if (offset === 0) p.spso = 0;
-    }
+  // Global credit pool + strict round-robin ensures even distribution across partitions.
+  // Each tick the pool earns (rate / ticksPerSec) credits total; we spend them one
+  // record at a time cycling through partitions in order, so every partition gets
+  // exactly the same number of records regardless of MAX_RECORDS timing.
+  const ticksPerSec = config.speedMultiplier * BASE_TICK_RATE;
+  const creditsPerTick = config.produceRate / ticksPerSec;
+
+  sim.produceCredit += creditsPerTick;
+  // Cap to avoid bursting after a long pause (max ~1 full cycle of records)
+  sim.produceCredit = Math.min(sim.produceCredit, config.partitionCount * 4);
+
+  while (sim.produceCredit >= 1) {
+    if (liveCount() >= MAX_RECORDS) { sim.produceCredit = 0; break; }
+    sim.produceCredit -= 1;
+    const p = sim.partitions[sim.produceNext % config.partitionCount];
+    sim.produceNext = (sim.produceNext + 1) % config.partitionCount;
+    const offset = p.nextOffset++;
+    p.speo = offset;
+    const r = makeRecord(p.id, offset);
+    p.recordMap.set(offset, r);
+    if (offset === 0) p.spso = 0;
   }
 }
 
@@ -952,8 +977,8 @@ function computeLayout() {
   const np = config.partitionCount;
   const nc = config.consumerCount;
 
-  // Consumer row at bottom: fixed height
-  const CONSUMER_ROW_H = Math.max(44, Math.min(60, H * 0.14));
+  // Consumer row at bottom: taller for legibility
+  const CONSUMER_ROW_H = Math.max(90, Math.min(130, H * 0.22));
   const PARTITION_AREA_H = H - CONSUMER_ROW_H - 8;
   // Cap lane height so a single partition doesn't sprawl; min for 3 partitions
   const LANE_H = Math.min(200, PARTITION_AREA_H / np);
@@ -968,7 +993,7 @@ function computeLayout() {
   const CELL_H = LANE_H - 42; // room for offset pill labels top and stats bottom
 
   // Consumer box sizing
-  const CBOX_W = Math.max(52, Math.min(72, (W - 20) / Math.max(nc, 1) - 6));
+  const CBOX_W = Math.max(80, Math.min(130, (W - 20) / Math.max(nc, 1) - 8));
   const CBOX_H = CONSUMER_ROW_H - 10;
   const CBOX_Y = H - CONSUMER_ROW_H;
   // center the row
@@ -1253,45 +1278,112 @@ function drawPartitionLane(p, laneIdx) {
   ctx.fillText(`live: ${p.recordMap.size}`, L.LEFT_MARGIN, laneY + L.LANE_H - 4);
 }
 
-function drawConsumerRow() {
-  const y = L.CBOX_Y;
-  const h = L.CBOX_H;
-  const w = L.CBOX_W;
+function consumerBoxRect(i) {
+  const w = L.CBOX_W, h = L.CBOX_H;
+  return { x: L.CBOX_X0 + i * (w + 8), y: L.CBOX_Y, w, h };
+}
 
+function drawConsumerRow() {
   for (let i = 0; i < sim.consumers.length; i++) {
     const c = sim.consumers[i];
-    const x = L.CBOX_X0 + i * (w + 6);
+    const { x, y, w, h } = consumerBoxRect(i);
     const shakeX = c.shake > 0 ? Math.sin(c.shake * 1.3) * 2 : 0;
     const bx = x + shakeX;
 
-    if (c.state === 'crashed') { ctx.shadowColor = '#F44336'; ctx.shadowBlur = 10; }
-    ctx.fillStyle = c.state === 'crashed' ? '#2a0808'
-                  : c.acquiredRecords.length > 0 ? '#1a2a0a' : '#1a1d27';
-    ctx.beginPath(); ctx.roundRect(bx, y, w, h, 4); ctx.fill();
-    ctx.strokeStyle = c.state === 'crashed' ? '#F44336'
-                    : c.acquiredRecords.length > 0 ? '#FF9800' : '#3d4f63';
-    ctx.lineWidth = 1.5;
+    const isCrashed    = c.state === 'crashed';
+    const isProcessing = c.state === 'processing';
+    const hasRecords   = c.acquiredRecords.length > 0;
+
+    // Card shadow/glow
+    if (isCrashed) { ctx.shadowColor = '#F44336'; ctx.shadowBlur = 12; }
+    else if (isProcessing) { ctx.shadowColor = '#FF9800'; ctx.shadowBlur = 6; }
+
+    // Card background
+    ctx.fillStyle = isCrashed ? '#1e0808' : isProcessing ? '#1a1f0a' : '#161b22';
+    ctx.beginPath(); ctx.roundRect(bx, y, w, h, 6); ctx.fill();
+
+    // Card border
+    ctx.strokeStyle = isCrashed ? '#e05252' : isProcessing ? '#FF9800' : '#2a3347';
+    ctx.lineWidth = isCrashed || isProcessing ? 1.5 : 1;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = c.state === 'crashed' ? '#fc8181' : '#a0aec0';
-    ctx.font = `bold ${Math.min(11, w * 0.18)}px Courier New`;
-    ctx.fillText(`C${c.id}`, bx + w / 2, y + 3);
+    // ── Header strip ──
+    const headerH = 22;
+    ctx.fillStyle = isCrashed ? '#3a0f0f' : isProcessing ? '#1e2a0a' : '#1c2230';
+    ctx.beginPath(); ctx.roundRect(bx + 1, y + 1, w - 2, headerH, [5, 5, 0, 0]); ctx.fill();
 
-    ctx.font = `${Math.min(9, w * 0.14)}px sans-serif`;
-    ctx.fillStyle = c.state === 'crashed' ? '#fc8181'
-                  : c.state === 'processing' ? '#FF9800' : '#4a5568';
-    const stateLabel = c.state === 'crashed' ? '💥 crashed'
-                     : c.state === 'processing' ? `proc (${c.processingTicks})` : 'idle';
-    ctx.fillText(stateLabel, bx + w / 2, y + h * 0.45);
+    // Consumer ID
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = isCrashed ? '#fc8181' : '#c9d1d9';
+    ctx.font = 'bold 12px Courier New';
+    ctx.fillText(`C${c.id}`, bx + 9, y + headerH / 2 + 1);
 
-    // show held offsets
-    if (c.acquiredRecords.length > 0 && h >= 36) {
-      const offsets = c.acquiredRecords.map(x => `P${x.partitionId}:${x.offset}`).join(' ');
-      ctx.font = `8px Courier New`;
-      ctx.fillStyle = '#FF9800';
-      ctx.fillText(offsets.slice(0, 14), bx + w / 2, y + h - 10);
+    // State badge (right of header)
+    const stateText = isCrashed ? 'CRASHED' : isProcessing ? 'PROCESSING' : 'IDLE';
+    const badgeColor = isCrashed ? '#e05252' : isProcessing ? '#FF9800' : '#4a5568';
+    ctx.font = 'bold 8px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = badgeColor;
+    ctx.fillText(stateText, bx + w - 7, y + headerH / 2 + 1);
+
+    // ── Record pills ──
+    const bodyY = y + headerH + 5;
+    const bodyH = h - headerH - 10;
+
+    if (isCrashed) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#6e2a2a';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('💥', bx + w / 2, bodyY + bodyH / 2 - 6);
+      ctx.fillStyle = '#e05252';
+      ctx.font = '9px sans-serif';
+      ctx.fillText(`recovery in ${c.crashCooldown}`, bx + w / 2, bodyY + bodyH / 2 + 8);
+    } else if (!hasRecords) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#2a3347';
+      ctx.font = '9px sans-serif';
+      ctx.fillText('waiting for records', bx + w / 2, bodyY + bodyH / 2);
+    } else {
+      // Draw each held record as a small pill: [Pn:offset ×dc]
+      const pillH = 15;
+      const pillGap = 3;
+      const maxVisible = Math.floor(bodyH / (pillH + pillGap));
+      const records = c.acquiredRecords.slice(0, maxVisible);
+
+      records.forEach(({ partitionId, offset }, idx) => {
+        const py = bodyY + idx * (pillH + pillGap);
+        const r  = sim.partitions[partitionId]?.recordMap.get(offset);
+        const dc = r ? r.deliveryCount : 1;
+        const atLimit = dc >= config.deliveryCountLimit - 1;
+
+        // Pill bg
+        ctx.fillStyle = atLimit ? '#3a1515' : '#1a2a0a';
+        ctx.beginPath(); ctx.roundRect(bx + 6, py, w - 12, pillH, 3); ctx.fill();
+        ctx.strokeStyle = atLimit ? '#e05252' : '#FF9800';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        // Partition + offset
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#FF9800';
+        ctx.font = 'bold 9px Courier New';
+        ctx.fillText(`P${partitionId}:${offset}`, bx + 10, py + pillH / 2);
+
+        // Delivery count badge
+        ctx.textAlign = 'right';
+        ctx.fillStyle = atLimit ? '#fc8181' : '#6e8a6e';
+        ctx.font = '8px Courier New';
+        ctx.fillText(`×${dc}`, bx + w - 8, py + pillH / 2);
+      });
+
+      // Overflow indicator
+      if (c.acquiredRecords.length > maxVisible) {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillStyle = '#4a5568';
+        ctx.font = '8px sans-serif';
+        ctx.fillText(`+${c.acquiredRecords.length - maxVisible} more`, bx + w / 2, y + h - 3);
+      }
     }
 
     if (c.shake > 0) c.shake--;
@@ -1415,7 +1507,9 @@ document.getElementById('speedSlider').addEventListener('input', e => {
 });
 
 // Partition slider: index 0-3 → values 1,3,6,9
-const PART_VALUES = [1, 3, 6, 9];
+const PART_VALUES     = [1, 3, 6, 9];
+// Consumer slider: index 0-7 → values 1,3,6,9,12,15,21,25
+const CONSUMER_VALUES = [1, 3, 6, 9, 12, 15, 21, 25];
 document.getElementById('partSlider').addEventListener('input', e => {
   const n = PART_VALUES[+e.target.value];
   document.getElementById('partVal').textContent = n;
@@ -1424,7 +1518,7 @@ document.getElementById('partSlider').addEventListener('input', e => {
 });
 
 document.getElementById('consumerSlider').addEventListener('input', e => {
-  const n = +e.target.value;
+  const n = CONSUMER_VALUES[+e.target.value];
   document.getElementById('consumerVal').textContent = n;
   if (!sim) return;
   if (n > sim.consumers.length) {
@@ -1443,6 +1537,11 @@ document.getElementById('consumerSlider').addEventListener('input', e => {
 });
 
 // (partition radios replaced by slider — no buildPartitionRadios needed)
+
+document.getElementById('produceSlider').addEventListener('input', e => {
+  config.produceRate = PRODUCE_RATES[+e.target.value];
+  document.getElementById('produceVal').textContent = config.produceRate;
+});
 
 document.getElementById('ackMode').addEventListener('change', e => { config.acknowledgementMode = e.target.value; });
 document.getElementById('acquireMode').addEventListener('change', e => { config.acquireMode = e.target.value; });
@@ -1505,6 +1604,72 @@ function shuffle(a) {
 // §L  Tooltip / hit-test
 // ═══════════════════════════════════════════════════════════
 const tooltip = document.getElementById('tooltip');
+
+// Given canvas pixel coords, return the consumer box under the cursor (or null)
+function consumerAtPoint(px, py) {
+  if (!sim) return null;
+  for (let i = 0; i < sim.consumers.length; i++) {
+    const { x, y, w, h } = consumerBoxRect(i);
+    if (px >= x && px <= x + w && py >= y && py <= y + h) {
+      return sim.consumers[i];
+    }
+  }
+  return null;
+}
+
+function showConsumerTooltip(c, mouseX, mouseY) {
+  const stateLabel = c.state === 'crashed' ? 'CRASHED'
+                   : c.state === 'processing' ? 'PROCESSING'
+                   : 'IDLE';
+  const stateColor = c.state === 'crashed' ? '#fc8181'
+                   : c.state === 'processing' ? '#FF9800' : '#6e7d91';
+
+  let recordRows = '';
+  if (c.acquiredRecords.length === 0) {
+    recordRows = `<div class="tt-row" style="color:#3d5068;font-style:italic">no records held</div>`;
+  } else {
+    for (const { partitionId, offset } of c.acquiredRecords) {
+      const r = sim.partitions[partitionId]?.recordMap.get(offset);
+      const dc = r ? r.deliveryCount : '?';
+      const atLimit = r && r.deliveryCount >= config.deliveryCountLimit - 1;
+      const lockLeft = r ? Math.max(0, r.lockExpiresAt - sim.tick) : '?';
+      recordRows += `
+        <div style="margin:4px 0 2px;padding:4px 6px;background:#0d1a2a;border-radius:4px;border:1px solid #1e3048">
+          <div class="tt-row">
+            <span class="tt-key">offset</span>
+            <span class="tt-val" style="color:#FF9800">P${partitionId}:${offset}</span>
+          </div>
+          <div class="tt-row">
+            <span class="tt-key">delivery count</span>
+            <span class="tt-val ${atLimit ? 'dc-warn' : ''}">${dc}${atLimit ? ' ⚠' : ''}</span>
+          </div>
+          <div class="tt-row">
+            <span class="tt-key">lock expires in</span>
+            <span class="tt-val">${lockLeft} ticks</span>
+          </div>
+        </div>`;
+    }
+  }
+
+  tooltip.innerHTML = `
+    <div class="tt-head">Consumer C${c.id} — <span style="color:${stateColor}">${stateLabel}</span></div>
+    ${c.state === 'crashed' ? `<div class="tt-row"><span class="tt-key">recovery in</span><span class="tt-val" style="color:#fc8181">${c.crashCooldown} ticks</span></div>` : ''}
+    ${c.state === 'processing' ? `<div class="tt-row"><span class="tt-key">ticks remaining</span><span class="tt-val">${c.processingTicks}</span></div>` : ''}
+    <div style="margin-top:6px;font-size:10px;color:#6e7d91;text-transform:uppercase;letter-spacing:.05em">Held Records (${c.acquiredRecords.length})</div>
+    ${recordRows}
+  `;
+  tooltip.style.display = 'block';
+
+  const tw = tooltip.offsetWidth  || 210;
+  const th = tooltip.offsetHeight || 160;
+  let tx = mouseX + 14;
+  let ty = mouseY - th / 2;
+  if (tx + tw > window.innerWidth  - 8) tx = mouseX - tw - 8;
+  if (ty < 8)                           ty = 8;
+  if (ty + th > window.innerHeight - 8) ty = window.innerHeight - th - 8;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top  = ty + 'px';
+}
 
 // Given canvas pixel coords, return the record under the cursor (or null)
 function recordAtPoint(px, py) {
@@ -1593,6 +1758,15 @@ canvas.addEventListener('mousemove', e => {
   const px = (e.clientX - rect.left) * scaleX;
   const py = (e.clientY - rect.top)  * scaleY;
 
+  // Check consumer boxes first (they're at the bottom)
+  const consumer = consumerAtPoint(px, py);
+  if (consumer) {
+    showConsumerTooltip(consumer, e.clientX, e.clientY);
+    canvas.style.cursor = 'pointer';
+    return;
+  }
+
+  // Then check record cells
   const hit = recordAtPoint(px, py);
   if (hit) {
     showTooltip(hit, e.clientX, e.clientY);
