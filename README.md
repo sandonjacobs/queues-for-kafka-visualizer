@@ -64,7 +64,7 @@ Open `index.html` directly in any modern browser — no build step or server req
 | Setting | What it does |
 |---|---|
 | `share.delivery.count.limit` | Max times a record is redelivered before being ARCHIVED (2–10) |
-| `share.renew.acknowledge.enable` | Allows consumers to extend their acquisition lock (RENEW ack type) |
+| `share.renew.acknowledge.enable` | Allows consumers to extend their acquisition lock (RENEW ack type), only in EXPLICIT acknowledgement mode |
 
 **Toolbar buttons**
 
