@@ -58,9 +58,9 @@
       <div class="ctrl">
         <div class="ctrl-header">
           <span class="ctrl-label">ingress rate (events/sec)</span>
-          <span class="ctrl-val" id="produceVal">100</span>
+          <span class="ctrl-val" id="produceVal">50</span>
         </div>
-        <input type="range" id="produceSlider" min="0" max="4" value="1" step="1">
+        <input type="range" id="produceSlider" min="0" max="4" value="0" step="1">
         <div class="slider-ticks"><span>50</span><span>100</span><span>150</span><span>300</span><span>500</span></div>
       </div>
     </div>
@@ -109,6 +109,19 @@
         <div class="info-popover" id="acquireInfo">
           <strong>batch_optimized</strong> — the broker may return fewer than <code>max.poll.records</code> to optimise batching efficiency (KIP-1206).<br><br>
           <strong>record_limit</strong> — strictly enforces <code>max.poll.records</code>; the broker will not return more than this count.
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">processing time (sec/batch)</span>
+          <span class="ctrl-val" id="procTimeVal">1s</span>
+          <button class="info-btn" data-info="procTimeInfo" title="About this setting">i</button>
+        </div>
+        <input type="range" id="procTimeSlider" min="0" max="3" value="0" step="1">
+        <div class="slider-ticks"><span>1s</span><span>5s</span><span>10s</span><span>25s</span></div>
+        <div class="info-popover" id="procTimeInfo">
+          How long a consumer takes to process each batch of records before settling. The lock timeout is ~6s — at values longer than this, consumers must send <strong style="color:#FF9800">RENEW</strong> to hold their records (in explicit mode with RENEW enabled), otherwise the lock expires and records return to AVAILABLE for redelivery.
         </div>
       </div>
     </div>

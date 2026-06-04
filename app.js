@@ -141,6 +141,7 @@ const FLASH_TICKS  = 8;
 const LOCK_TICKS   = 28;
 const MAX_RECORDS       = 40;
 const PRODUCE_RATES     = [50, 100, 150, 300, 500]; // events/sec options
+const PROC_TIME_VALUES  = [1, 5, 10, 25];          // processing time options (seconds)
 const BASE_TICK_RATE    = 1000 / 220;            // ticks/sec at 1×
 const P_CRASH      = 0.004;
 const MIN_CELL_W = 34;   // minimum cell width before we start windowing
@@ -206,7 +207,8 @@ const config = {
   maxPollRecords: 3,
   deliveryCountLimit: 5,
   speedMultiplier: 1,
-  produceRate: 100,      // events per second (total across all partitions)
+  produceRate: 50,       // events per second (total across all partitions)
+  processingTimeSecs: 1, // how long each consumer takes to settle a batch
 };
 
 let sim = null;
@@ -296,14 +298,27 @@ function consumerPollStep() {
       c.acquiredRecords.push({ partitionId: r.partitionId, offset: r.offset });
     }
     c.state = 'processing';
-    c.processingTicks = 8 + Math.floor(Math.random() * 12);
+    c.processingTicks = Math.max(1, Math.round(config.processingTimeSecs * BASE_TICK_RATE));
   }
 }
 
 function consumerAckStep() {
   for (const c of sim.consumers) {
     if (c.state !== 'processing') continue;
-    if (--c.processingTicks > 0) continue;
+    if (--c.processingTicks > 0) {
+      // Still processing — proactively extend locks about to expire (explicit+RENEW mode only)
+      if (config.acknowledgementMode === 'explicit' && config.renewAcknowledgeEnable) {
+        for (const { partitionId, offset } of c.acquiredRecords) {
+          const r = sim.partitions[partitionId]?.recordMap.get(offset);
+          if (!r || r.state !== STATE.ACQUIRED) continue;
+          if (sim.tick + 4 >= r.lockExpiresAt) {
+            r.lockExpiresAt = sim.tick + LOCK_TICKS;
+            r.renewPulse = 15;
+          }
+        }
+      }
+      continue;
+    }
 
     const toAck = c.acquiredRecords.splice(0);
     c.state = 'idle';
@@ -320,8 +335,7 @@ function consumerAckStep() {
         const roll = Math.random();
         if (roll < 0.65)       ackType = ACK.ACCEPT;
         else if (roll < 0.80)  ackType = ACK.RELEASE;
-        else if (roll < 0.90)  ackType = ACK.REJECT;
-        else                   ackType = config.renewAcknowledgeEnable ? ACK.RENEW : ACK.RELEASE;
+        else                   ackType = ACK.REJECT;
       }
       applyAck(r, c, ackType);
     }
@@ -1126,6 +1140,11 @@ document.getElementById('pollSlider').addEventListener('input', e => {
 document.getElementById('deliverySlider').addEventListener('input', e => {
   config.deliveryCountLimit = +e.target.value;
   document.getElementById('deliveryVal').textContent = e.target.value;
+});
+
+document.getElementById('procTimeSlider').addEventListener('input', e => {
+  config.processingTimeSecs = PROC_TIME_VALUES[+e.target.value];
+  document.getElementById('procTimeVal').textContent = config.processingTimeSecs + 's';
 });
 
 // Spacebar to pause/resume
