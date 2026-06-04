@@ -148,6 +148,7 @@ const MIN_CELL_W = 34;   // minimum cell width before we start windowing
 const MAX_CELL_W = 70;   // maximum cell width
 const HIST_COUNT  = 5;   // pre-SPSO processed cells shown in history strip
 const HIST_CELL_W = 26;  // fixed px width of each history cell
+const PRODUCER_BATCH_SIZE = 10; // records per producer batch, per partition
 
 // ═══════════════════════════════════════════════════════════
 // §B  Data constructors
@@ -167,6 +168,7 @@ function makeRecord(partitionId, offset) {
     stateChangedAt: 0,
     renewPulse: 0,
     flashAge: 0,   // render frames since last state change (for flash)
+    batchId: 0,    // producer batch group (per partition), set in produceRecords()
   };
 }
 
@@ -181,6 +183,8 @@ function makePartition(id) {
     nextOffset: 0,
     // running totals per partition for display
     totalAccepted: 0, totalReleased: 0, totalRejected: 0, totalArchived: 0,
+    batchCounter:   0,  // records produced into current batch (0 to PRODUCER_BATCH_SIZE-1)
+    currentBatchId: 0,  // monotonically incrementing batch number for this partition
   };
 }
 
@@ -209,6 +213,7 @@ const config = {
   speedMultiplier: 1,
   produceRate: 50,       // events per second (total across all partitions)
   processingTimeSecs: 1, // how long each consumer takes to settle a batch
+  showProducerBatches: true,
 };
 
 let sim = null;
@@ -260,9 +265,15 @@ function produceRecords() {
     sim.produceCredit -= 1;
     const p = sim.partitions[sim.produceNext % config.partitionCount];
     sim.produceNext = (sim.produceNext + 1) % config.partitionCount;
+    if (p.batchCounter >= PRODUCER_BATCH_SIZE) {
+      p.currentBatchId++;
+      p.batchCounter = 0;
+    }
     const offset = p.nextOffset++;
     p.speo = offset;
     const r = makeRecord(p.id, offset);
+    r.batchId = p.currentBatchId;
+    p.batchCounter++;
     p.recordMap.set(offset, r);
     if (offset === 0) p.spso = 0;
   }
@@ -755,6 +766,53 @@ function drawPartitionLane(p, laneIdx) {
     }
   }
 
+  // ── Producer batch dividers (drawn after cells so they sit on top) ──
+  if (config.showProducerBatches && end >= start) {
+    const isDark = (T === DARK);
+    const dividerColor  = isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.60)';
+    const pillBg        = isDark ? 'rgba(60,60,60,0.92)'    : 'rgba(220,220,220,0.95)';
+    const pillTxt       = isDark ? '#ffffff'                 : '#111111';
+    const getBatchId    = offset => {
+      const r = p.recordMap.get(offset);
+      return r ? r.batchId : Math.floor(offset / PRODUCER_BATCH_SIZE);
+    };
+
+    // Label the first visible batch at the left edge of the live zone
+    const firstBid = getBatchId(start);
+    const labelBatch = (x, bid) => {
+      const label = `B${bid % 10}`;
+      ctx.font = 'bold 9px Courier New';
+      const tw = ctx.measureText(label).width;
+      const pw = tw + 6, ph = 13;
+      const px = x + 2, py = cellTop + (ch - ph) / 2;
+      ctx.fillStyle = pillBg;
+      ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 3); ctx.fill();
+      ctx.fillStyle = pillTxt;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, px + 3, py + ph / 2);
+    };
+    labelBatch(L.LEFT_MARGIN, firstBid);
+
+    // Divider line + label at each batch boundary within the viewport
+    let prevBid = firstBid;
+    for (let offset = start + 1; offset <= end; offset++) {
+      const bid = getBatchId(offset);
+      if (bid !== prevBid) {
+        const divX = L.LEFT_MARGIN + (offset - start) * cw;
+        ctx.beginPath();
+        ctx.moveTo(divX, cellTop);
+        ctx.lineTo(divX, cellTop + ch);
+        ctx.strokeStyle = dividerColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        labelBatch(divX, bid);
+        prevBid = bid;
+      }
+    }
+  }
+
   // ── SPSO boundary line — always pinned at LEFT_MARGIN (left edge of live zone) ──
   const spsoX = L.LEFT_MARGIN - 2;
   ctx.beginPath();
@@ -1116,6 +1174,11 @@ document.getElementById('acquireMode').addEventListener('change', e => { config.
 document.getElementById('renewEnable').addEventListener('change', e => {
   config.renewAcknowledgeEnable = e.target.checked;
   document.getElementById('renewLabel').textContent = e.target.checked ? 'enabled' : 'disabled';
+});
+
+document.getElementById('batchEnable').addEventListener('change', e => {
+  config.showProducerBatches = e.target.checked;
+  document.getElementById('batchLabel').textContent = e.target.checked ? 'enabled' : 'disabled';
 });
 
 // Info popover toggles

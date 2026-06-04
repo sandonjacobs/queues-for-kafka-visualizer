@@ -63,6 +63,20 @@
         <input type="range" id="produceSlider" min="0" max="4" value="0" step="1">
         <div class="slider-ticks"><span>50</span><span>100</span><span>150</span><span>300</span><span>500</span></div>
       </div>
+
+      <div class="ctrl">
+        <div class="ctrl-header">
+          <span class="ctrl-label">show producer batches</span>
+          <button class="info-btn" data-info="batchInfo" title="About producer batches">i</button>
+        </div>
+        <label class="ctrl-toggle">
+          <input type="checkbox" id="batchEnable" checked>
+          <span id="batchLabel">enabled</span>
+        </label>
+        <div class="info-popover" id="batchInfo">
+          Groups records by the <strong>producer batch</strong> that created them (batch.size = 10). Vertical lines mark where one producer batch ends and the next begins. Useful for observing how <code>share.acquire.mode=batch_optimized</code> aligns — or doesn't align — consumer acquisitions to producer batch boundaries.
+        </div>
+      </div>
     </div>
 
     <!-- Consumer config -->
@@ -107,8 +121,8 @@
           <option value="record_limit">record_limit</option>
         </select>
         <div class="info-popover" id="acquireInfo">
-          <strong>batch_optimized</strong> — the broker may return fewer than <code>max.poll.records</code> to optimise batching efficiency (KIP-1206).<br><br>
-          <strong>record_limit</strong> — strictly enforces <code>max.poll.records</code>; the broker will not return more than this count.
+          <strong>batch_optimized</strong> — the broker may return fewer than <code>max.poll.records</code> to optimise batching efficiency (KIP-1206). With <em>Show producer batches</em> enabled, observe how acquisitions can align to the batch boundary markers.<br><br>
+          <strong>record_limit</strong> — strictly enforces <code>max.poll.records</code>; acquisitions may cross producer batch boundaries.
         </div>
       </div>
 
