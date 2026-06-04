@@ -13,10 +13,12 @@
   <h1>Share Group Visualizer <span class="kip">KIP-932 · Apache Kafka 4.3</span></h1>
   <div class="spacer"></div>
   <div class="sep"></div>
-  <button class="btn running" id="btnPlay">⏸ Pause</button>
+  <div id="playbackControls">
+  <button class="btn" id="btnPlay">▶ Resume</button>
   <button class="btn" id="btnStep" title="Step one tick (while paused)">⏭ Step</button>
   <button class="btn" id="btnReset">↺ Reset</button>
   <button class="btn danger" id="btnCrash">⚡ Crash Consumer</button>
+  </div>
   <div class="sep"></div>
   <div class="speed-wrap">
     <span>Speed</span>
@@ -264,6 +266,35 @@
   </div><!-- /rightSidebar -->
 
 </div><!-- /body -->
+
+<!-- Welcome Modal -->
+<div id="welcomeModal">
+  <div id="welcomeContent">
+    <div class="welcome-logo">⬡</div>
+    <h2>Share Group Visualizer</h2>
+    <p class="welcome-sub">KIP-932 · Apache Kafka 4.3</p>
+    <p class="welcome-desc">Watch records flow through the Share Group state machine — AVAILABLE → ACQUIRED → ACKNOWLEDGED → ARCHIVED — across partitions and competing consumers.</p>
+    <div class="welcome-actions">
+      <button class="btn welcome-primary" id="btnWelcomeStart">▶ Start Visualizer</button>
+      <button class="btn" id="btnWelcomeTour">⊙ Take a Tour</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tour Overlay -->
+<div id="tourSpotlight"></div>
+<div id="tourCard">
+  <div id="tourCardHeader">
+    <span id="tourStepLabel"></span>
+    <button id="tourExit">✕ Exit</button>
+  </div>
+  <div id="tourTitle"></div>
+  <div id="tourBody"></div>
+  <div id="tourNav">
+    <button class="btn" id="tourPrev">← Prev</button>
+    <button class="btn" id="tourNext">Next →</button>
+  </div>
+</div>
 
 <div id="tooltip"></div>
 

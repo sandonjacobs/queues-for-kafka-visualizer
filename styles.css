@@ -478,3 +478,167 @@
 
   #cntLag { font-size: 14px; font-weight: 700; color: #e2a83a; font-family: var(--text-mono); }
   body.light #cntLag { color: #b07020; }
+
+  /* ── Welcome Modal ── */
+  #welcomeModal {
+    display: none;
+    position: fixed; inset: 0; z-index: 1000;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(3px);
+  }
+
+  #welcomeContent {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 40px 44px;
+    max-width: 440px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+
+  .welcome-logo {
+    font-size: 48px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  #welcomeContent h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 4px;
+    letter-spacing: 0.01em;
+  }
+
+  .welcome-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin: 0 0 20px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .welcome-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin: 0 0 28px;
+  }
+
+  .welcome-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .welcome-actions .btn {
+    padding: 8px 20px;
+    font-size: 13px;
+  }
+
+  .welcome-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .welcome-primary:hover { opacity: 0.88; }
+
+  /* ── Tour Spotlight ── */
+  #tourSpotlight {
+    display: none;
+    position: fixed;
+    z-index: 900;
+    pointer-events: none;
+    border-radius: 5px;
+    transition: top 0.22s ease, left 0.22s ease, width 0.22s ease, height 0.22s ease;
+  }
+
+  /* ── Tour Card ── */
+  #tourCard {
+    display: none;
+    position: fixed;
+    z-index: 950;
+    width: 300px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.55);
+    transition: top 0.22s ease, left 0.22s ease;
+  }
+
+  #tourCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  #tourStepLabel {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  #tourExit {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  #tourExit:hover { color: var(--text); background: var(--surface2); }
+
+  #tourTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  #tourBody {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+
+  #tourBody strong { color: var(--text); }
+  #tourBody code {
+    font-family: var(--text-mono);
+    font-size: 11px;
+    background: var(--surface2);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  #tourNav {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  #tourNav .btn {
+    flex: 1;
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
+  #tourPrev:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  /* ── Playback controls wrapper ── */
+  #playbackControls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }

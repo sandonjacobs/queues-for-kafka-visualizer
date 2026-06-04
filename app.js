@@ -217,7 +217,7 @@ const config = {
 };
 
 let sim = null;
-let running = true;
+let running = false;
 
 function initSim() {
   _nextId = 0;
@@ -1434,8 +1434,249 @@ document.getElementById('btnTheme').addEventListener('click', () => {
 
 handleResize();
 initSim();
+setRunning(false);
 // Restore saved theme before first frame
 const _savedTheme = localStorage.getItem('themeMode');
 if (_savedTheme === 'light') setTheme('light');
 requestAnimationFrame(animationFrame);
 window.addEventListener('resize', handleResize);
+
+// ═══════════════════════════════════════════════════════════
+// §K  Welcome modal & guided tour
+// ═══════════════════════════════════════════════════════════
+
+const welcomeModal = document.getElementById('welcomeModal');
+welcomeModal.style.display = 'flex';
+
+document.getElementById('btnWelcomeStart').addEventListener('click', () => {
+  welcomeModal.style.display = 'none';
+  setRunning(true);
+});
+
+document.getElementById('btnWelcomeTour').addEventListener('click', () => {
+  welcomeModal.style.display = 'none';
+  paintTourExample();
+  startTour();
+});
+
+// ── Static example for the tour ───────────────────────────
+
+function paintTourExample() {
+  // Configure for a single-partition, 3-consumer scenario
+  config.partitionCount = 1;
+  config.consumerCount  = 3;
+  config.showProducerBatches = true;
+
+  // Sync sliders to match (consumerSlider index 1 → 3 consumers)
+  const cs = document.getElementById('consumerSlider');
+  if (cs) { cs.value = 1; document.getElementById('consumerVal').textContent = '3'; }
+
+  initSim();
+  const p = sim.partitions[0];
+
+  function addRec(offset, state, consumerId, delivCount, batchId) {
+    const r    = makeRecord(0, offset);
+    r.state    = state;
+    r.deliveryCount = delivCount;
+    r.batchId  = batchId;
+    if (consumerId !== null) {
+      r.acquiredBy    = consumerId;
+      r.lockExpiresAt = sim.tick + LOCK_TICKS;
+    }
+    p.recordMap.set(offset, r);
+    if (offset + 1 > p.nextOffset) p.nextOffset = offset + 1;
+    if (offset > p.speo)           p.speo       = offset;
+  }
+
+  // Batch 0 (offsets 0–9)
+  addRec(0,  STATE.AVAILABLE, null, 0, 0);
+  addRec(1,  STATE.AVAILABLE, null, 0, 0);
+  addRec(2,  STATE.AVAILABLE, null, 1, 0);
+  addRec(3,  STATE.AVAILABLE, null, 1, 0);
+  addRec(4,  STATE.ACQUIRED,  0,    1, 0);
+  addRec(5,  STATE.ACQUIRED,  0,    1, 0);
+  addRec(6,  STATE.ACQUIRED,  0,    1, 0);
+  addRec(7,  STATE.ACQUIRED,  1,    1, 0);
+  addRec(8,  STATE.ACQUIRED,  1,    1, 0);
+  addRec(9,  STATE.ACQUIRED,  1,    1, 0);
+
+  // Batch 1 (offsets 10–14)
+  addRec(10, STATE.ACQUIRED,  2,    1, 1);
+  addRec(11, STATE.ACQUIRED,  2,    1, 1);
+  addRec(12, STATE.AVAILABLE, null, 2, 1);
+  addRec(13, STATE.AVAILABLE, null, 3, 1);
+  addRec(14, STATE.AVAILABLE, null, 0, 1);
+
+  // Wire up consumer state
+  sim.consumers[0].state = 'processing';
+  sim.consumers[0].acquiredRecords = [{partitionId:0,offset:4},{partitionId:0,offset:5},{partitionId:0,offset:6}];
+  sim.consumers[0].processingTicks = 5;
+
+  sim.consumers[1].state = 'processing';
+  sim.consumers[1].acquiredRecords = [{partitionId:0,offset:7},{partitionId:0,offset:8},{partitionId:0,offset:9}];
+  sim.consumers[1].processingTicks = 10;
+
+  sim.consumers[2].state = 'processing';
+  sim.consumers[2].acquiredRecords = [{partitionId:0,offset:10},{partitionId:0,offset:11}];
+  sim.consumers[2].processingTicks = 3;
+
+  computeLayout();
+  render();
+}
+
+// ── Tour data ──────────────────────────────────────────────
+
+const tourSteps = [
+  {
+    selector: '#canvasWrap',
+    title: 'The Canvas',
+    body: 'This is the live visualization. Records (colored cells) flow through partitions and get acquired by competing consumers. Watch the state machine: <strong>AVAILABLE → ACQUIRED → ACKNOWLEDGED → ARCHIVED</strong>.',
+    side: 'top',
+  },
+  {
+    selector: '#playbackControls',
+    title: 'Playback Controls',
+    body: '<strong>⏸ Pause</strong> (or <code>Space</code>) freezes the sim. <strong>⏭ Step</strong> advances one tick while paused. <strong>↺ Reset</strong> clears all state. <strong>⚡ Crash Consumer</strong> drops all locks on a random consumer — its records return to AVAILABLE.',
+    side: 'bottom',
+  },
+  {
+    selector: '.speed-wrap',
+    title: 'Speed Control',
+    body: 'Scale the simulation from <strong>0.25×</strong> to <strong>2×</strong>. Slow down to trace individual record transitions; speed up to stress-test a configuration.',
+    side: 'bottom',
+  },
+  {
+    selector: '#sidebar .sidebar-section:first-child',
+    title: 'Topology',
+    body: 'Set the number of <strong>partitions</strong> (1–9), <strong>consumers</strong> (1–25), and <strong>ingress rate</strong> (50–500 events/sec). Watch how adding consumers distributes load across the share group.',
+    side: 'right',
+  },
+  {
+    selector: '#sidebar .sidebar-section:nth-child(2)',
+    title: 'Consumer Config',
+    body: 'The most impactful setting: <strong>acknowledgement mode</strong>. <code>implicit</code> auto-acks on poll; <code>explicit</code> lets consumers send ACCEPT, RELEASE, or REJECT per record. Also controls batch size, acquire mode, and processing time.',
+    side: 'right',
+  },
+  {
+    selector: '#sidebar .sidebar-section:nth-child(3)',
+    title: 'Delivery Config',
+    body: '<strong>share.delivery.count.limit</strong>: records that exhaust this many delivery attempts are ARCHIVED (no further retries). <strong>share.renew.acknowledge.enable</strong>: lets consumers extend their lock while still processing — critical when processing time exceeds the ~6s lock window.',
+    side: 'right',
+  },
+  {
+    selector: '#statusBar',
+    title: 'Record Counts',
+    body: 'Live counts for each record state: Available, Acquired, Accepted, Released, Rejected, Archived. The <strong>Share Group Lag</strong> (KIP-1226) shows total unprocessed records across all partitions.',
+    side: 'right',
+  },
+  {
+    selector: '#canvasWrap',
+    title: 'Hover to Inspect',
+    body: 'Hit <strong>⏸ Pause</strong> (or <code>Space</code>), then hover over any record cell or consumer box on the canvas to see its full state: offset, delivery count, lock expiry, SPSO/SPEO boundaries, and more.',
+    side: 'top',
+  },
+];
+
+let tourIndex = 0;
+const tourSpotlight = document.getElementById('tourSpotlight');
+const tourCard = document.getElementById('tourCard');
+const tourStepLabel = document.getElementById('tourStepLabel');
+const tourTitleEl = document.getElementById('tourTitle');
+const tourBodyEl = document.getElementById('tourBody');
+const tourPrev = document.getElementById('tourPrev');
+const tourNext = document.getElementById('tourNext');
+
+function startTour() {
+  tourIndex = 0;
+  tourSpotlight.style.display = 'block';
+  tourCard.style.display = 'block';
+  showTourStep(0);
+}
+
+function exitTour() {
+  tourSpotlight.style.display = 'none';
+  tourCard.style.display = 'none';
+}
+
+function showTourStep(n) {
+  const step = tourSteps[n];
+  const el = document.querySelector(step.selector);
+  if (!el) return;
+
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+  // Small delay so scrollIntoView settles before we read rect
+  setTimeout(() => {
+    const pad = 8;
+    const rect = el.getBoundingClientRect();
+
+    // Position spotlight
+    tourSpotlight.style.top    = (rect.top    - pad) + 'px';
+    tourSpotlight.style.left   = (rect.left   - pad) + 'px';
+    tourSpotlight.style.width  = (rect.width  + pad * 2) + 'px';
+    tourSpotlight.style.height = (rect.height + pad * 2) + 'px';
+    tourSpotlight.style.boxShadow = '0 0 0 9999px rgba(0,0,0,0.72)';
+
+    // Fill card content
+    tourStepLabel.textContent = `Step ${n + 1} of ${tourSteps.length}`;
+    tourTitleEl.textContent = step.title;
+    tourBodyEl.innerHTML = step.body;
+
+    // Prev / Next button state
+    tourPrev.disabled = (n === 0);
+    tourNext.textContent = (n === tourSteps.length - 1) ? 'Finish' : 'Next →';
+
+    // Position card
+    const cardW = 316;
+    const cardH = 220;
+    const margin = 14;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let top, left;
+    const sL = rect.left - pad;
+    const sT = rect.top  - pad;
+    const sR = rect.right  + pad;
+    const sB = rect.bottom + pad;
+
+    const sides = [step.side, ...['right','left','bottom','top'].filter(s => s !== step.side)];
+    let placed = false;
+    for (const side of sides) {
+      if (side === 'right' && sR + margin + cardW <= vw) {
+        left = sR + margin; top = sT; placed = true; break;
+      }
+      if (side === 'left' && sL - margin - cardW >= 0) {
+        left = sL - margin - cardW; top = sT; placed = true; break;
+      }
+      if (side === 'bottom' && sB + margin + cardH <= vh) {
+        top = sB + margin; left = sL; placed = true; break;
+      }
+      if (side === 'top' && sT - margin - cardH >= 0) {
+        top = sT - margin - cardH; left = sL; placed = true; break;
+      }
+    }
+    if (!placed) { top = sB + margin; left = sL; }
+
+    // Clamp within viewport
+    left = Math.max(8, Math.min(left, vw - cardW - 8));
+    top  = Math.max(8, Math.min(top,  vh - cardH - 8));
+
+    tourCard.style.left = left + 'px';
+    tourCard.style.top  = top  + 'px';
+  }, 80);
+}
+
+document.getElementById('tourPrev').addEventListener('click', () => {
+  if (tourIndex > 0) { tourIndex--; showTourStep(tourIndex); }
+});
+
+document.getElementById('tourNext').addEventListener('click', () => {
+  if (tourIndex < tourSteps.length - 1) {
+    tourIndex++;
+    showTourStep(tourIndex);
+  } else {
+    exitTour();
+  }
+});
+
+document.getElementById('tourExit').addEventListener('click', exitTour);
