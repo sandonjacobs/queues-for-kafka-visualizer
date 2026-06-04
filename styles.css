@@ -35,8 +35,9 @@
     font-family: 'Segoe UI', system-ui, sans-serif;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    min-width: 740px;
+    overflow: auto;
   }
 
   /* ── Top header bar ── */
@@ -91,7 +92,7 @@
   #body {
     display: flex;
     flex: 1;
-    min-height: 0;
+    min-height: 480px;
   }
 
   /* ── Sidebar ── */

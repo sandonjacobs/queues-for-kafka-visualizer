@@ -1680,3 +1680,11 @@ document.getElementById('tourNext').addEventListener('click', () => {
 });
 
 document.getElementById('tourExit').addEventListener('click', exitTour);
+
+// Reposition tour spotlight + card when the window is resized
+let _tourResizeTimer = null;
+window.addEventListener('resize', () => {
+  if (tourCard.style.display !== 'block') return;
+  clearTimeout(_tourResizeTimer);
+  _tourResizeTimer = setTimeout(() => showTourStep(tourIndex), 120);
+});
